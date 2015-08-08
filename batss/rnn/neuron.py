@@ -1,4 +1,5 @@
-from dendrite import Dendrite
+import numpy as np
+from .dendrite import Dendrite
 
 
 class Neuron:
@@ -25,3 +26,16 @@ class Neuron:
         if sources:
             for source in sources:
                 self.dendrites.append(Dendrite(source))
+
+
+def activate(value):
+    """Sigmoid activation function"""
+
+    return 1.0 / (1+np.exp(-value))
+
+
+def activate_diff(value):
+    """Derivative of sigmoid activation function"""
+
+    f = activate(value)
+    return f * (1-f)
