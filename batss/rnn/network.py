@@ -1,6 +1,7 @@
 from .neuron import Neuron, activate, activate_diff
 from .dendrite import Dendrite
 import numpy as np
+import pickle
 
 
 class Network:
@@ -32,6 +33,24 @@ class Network:
             for pnn in self.processors:
                 processor.dendrites.append(Dendrite(pnn))
 
+    def load(filename):
+        """Load a recurrent neural network from a file.
+
+        Args:
+            filename: File to load rnn from.
+        """
+
+        return pickle.load(open(filename, "rb"))
+
+    def save(self, filename):
+        """Save the current neural network to a file.
+
+        Args:
+            filename: File to save rnn to.
+        """
+
+        pickle.dump(self, open(filename, "wb"))
+
     def get_outputs(self):
         """Get a list of current output activations from the network.
 
@@ -53,17 +72,19 @@ class Network:
             neuron.activation = values[i]
 
     def forward(self):
-        """Run the recurrent network using current inputs to get outputs"""
+        """Run the recurrent network using current inputs to get outputs
+
+        TODO: Implement GPU version of this function.
+        """
 
         outputs = self._get_y()
         for i, neuron in enumerate(self.processors):
             neuron.activation = outputs[i]
 
-    # We need following matrices.
-    # - X = [activations of source neurons of dendrites] as column vector
+    # We need the following matrices.
+    # - X = [input activations] as column vector
     # - W = [weights of dendrites] as rectangular matrix
-    # - Y = [output activations of weighted sum of input activations]
-    #     = f(W*X)
+    # - Y = [output activations] as column vector = f(W * X)
 
     def _get_x(self):
         # Use dendrites of just one processor neuron
@@ -80,7 +101,7 @@ class Network:
         return np.matrix(ws)
 
     def _get_y(self):
-        # Simply multiply the weight matrix by the activation vector
+        # Simply multiply the weight matrix by the input activation vector
         # and use activation function in each element
         outputs = (self._get_w() * self._get_x()).tolist()
         outputs = [activate(output[0]) for output in outputs]
