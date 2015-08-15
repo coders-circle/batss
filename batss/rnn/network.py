@@ -33,11 +33,17 @@ class Network:
             for pnn in self.processors:
                 processor.dendrites.append(Dendrite(pnn))
 
+        # Create an empty list to store the output samples
+        self.samples = []
+
     def load(filename):
         """Load a recurrent neural network from a file.
 
         Args:
             filename: File to load rnn from.
+
+        Returns:
+            Network: A new recurrent neural network loaded from the file.
         """
 
         return pickle.load(open(filename, "rb"))
@@ -52,14 +58,14 @@ class Network:
         pickle.dump(self, open(filename, "wb"))
 
     def get_outputs(self):
-        """Get a list of current output activations from the network.
+        """Get the activations from the network outputs.
 
         Returns:
-            list: List of output activation values.
+            List: Activation values of output neurons.
         """
 
         output_neurons = self.processors[-self.num_outputs:]
-        return [neuron.activation for neuron in output_neurons]
+        return [n.activation for n in output_neurons]
 
     def set_inputs(self, values):
         """Set the activations for the network inputs.
@@ -71,24 +77,46 @@ class Network:
         for i, neuron in enumerate(self.inputs):
             neuron.activation = values[i]
 
-    def forward(self):
-        """Run the recurrent network using current inputs to get outputs
+    def forward(self, addsamples=True):
+        """Run the recurrent network using current inputs to get outputs."""
 
-        TODO: Implement GPU version of this function.
-        """
+        # TODO: Implement GPU version of this function.
 
         outputs = self._get_y()
         for i, neuron in enumerate(self.processors):
-            neuron.activation = outputs[i]
+            neuron.activation = activate(outputs[i])
+
+        # store the output samples for future reference
+        output_neurons = self.processors[-self.num_outputs:]
+        if addsamples:
+            self.samples.append(self.get_outputs())
+
+    def train(self):
+        """Train the recurrent neural network for bss."""
+
+        # TODO: Implement GPU version of this function.
+
+        # Calculate the delta weight using formula given in the paper.
+        cfactor = self._get_cfactor()
+        error = self._get_error_vector()
+
+        xm = self._get_x()
+        dwtm = cfactor * error * (1.0/(xm.transpose()*xm).tolist()[0][0])
+        dwtm = dwtm * xm.transpose()
+
+        # Finally adjust weights of the dendrites.
+        for i, pn in enumerate(self.processors):
+            for j, dendrite in enumerate(pn.dendrites):
+                dendrite.weight += dwtm[i, j]
 
     # We need the following matrices.
     # - X = [input activations] as column vector
     # - W = [weights of dendrites] as rectangular matrix
-    # - Y = [output activations] as column vector = f(W * X)
+    # - Y = [weighted sum of inputs] as column vector = W * X
 
     def _get_x(self):
         # Use dendrites of just one processor neuron
-        #  since all other processors are also connected to same neuron sources
+        # since all other processors are also connected to same neuron sources.
         dendrites = self.processors[0].dendrites
         xs = [dendrite.source.activation for dendrite in dendrites]
         return np.matrix(xs).transpose()
@@ -102,7 +130,59 @@ class Network:
 
     def _get_y(self):
         # Simply multiply the weight matrix by the input activation vector
-        # and use activation function in each element
-        outputs = (self._get_w() * self._get_x()).tolist()
-        outputs = [activate(output[0]) for output in outputs]
+        outputs = (self._get_w() * self._get_x()).transpose().tolist()[0]
         return outputs
+
+    # The training algorithm is based on 2-D system theory
+    # developed for RNN by Chow and Fang.
+
+    # For the training algorithm, we need to calculate
+    # the cross-correlation values between each pair of output signals
+    # and the inverse-diagonal matrix of weighted sum of inputs
+    # which I will call the C-Factor.
+
+    def _get_error_vector(self, lags=None):
+
+        # For each hidden neuron, the error is zero
+        # and for each output neuron, the error is the cross
+        # cross correlation between it and next output neuron.
+
+        vector = [0]*len(self.processors)
+        for i in range(self.num_outputs):
+            j = len(self.processors) - self.num_outputs + i
+            inext = (i+1) % self.num_outputs
+            vector[j] = self._get_cross_correlation(i, inext)
+
+        vector = np.matrix([vector]).transpose()
+        return vector
+
+    def _get_cross_correlation(self, output1, output2, lag=1):
+        limit = len(self.samples) - lag
+        if limit <= 0:
+            return 1
+
+        sumv = 0
+        for m in range(0, limit):
+            sumv += self.samples[m][output1] * self.samples[m+lag][output2]
+        return sumv / limit
+
+    def _get_cfactor(self):
+
+        # The C-Factor is the inverse of the diagonal matrix
+        # formed from weighted-sums of inputs as diagonal elements
+
+        weighted_sums = self._get_y()
+        vals = [wsum for wsum in weighted_sums]
+
+        # Create a diagonal matrix from the vals as diagonal
+        # and find its inverse.
+        # Actually, inverse of diagonal matrix just has its diagonal
+        # elements inverted, so directly find that.
+        matrix = np.zeros((len(vals), len(vals))).tolist()
+        for i in range(len(vals)):
+            for j in range(len(vals)):
+                if i == j:
+                    matrix[i][i] = 1.0/vals[i]
+
+        # Return the inverse of the diagonal matrix
+        return np.matrix(matrix)
