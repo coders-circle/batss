@@ -18,14 +18,15 @@ class SoundManager:
         if sample.ndim == 1:
             return Sound(sample, rate).normalize()
         else:
-            return Sound(sample[0], rate).normalize(), Sound(sample[1], rate).normalize()        
+            return Sound(sample[0], rate).normalize(), Sound(sample[1], rate).normalize()
 
     def plot(self, sound):
         if type(sound) == tuple:
-            for i in range(0,2):
+            for i in range(0, 2):
                 timeArray = np.arange(0, sound[i].sample.size, 1)
                 timeArray = timeArray / sound[i].rate
                 timeArray = timeArray * 1000  # scale to milliseconds
+                plt.subplot(2,1,i+1)
                 plt.plot(timeArray, sound[i].sample, color='red')
             plt.ylabel('Amplitude')
             plt.xlabel('Time (ms)')
