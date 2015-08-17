@@ -25,15 +25,17 @@ class soundMgr:
 		#print(self.sample.shape)
 	
 	def plot(self):
-		timeArray = arange(0, self.sample.size[0], 1)
+		timeArray = np.arange(0, self.sample.size, 1)
 		timeArray = timeArray / self.rate
 		timeArray = timeArray * 1000  #scale to milliseconds
-		plt.plot(timeArray, s1, color='k')
-		ylabel('Amplitude')
-		xlabel('Time (ms)')
+		plt.plot(timeArray, self.sample, color='k')
+		plt.ylabel('Amplitude')
+		plt.xlabel('Time (ms)')
+		plt.show()
 		
 
 s = soundMgr()
 s.readFile("CallHangup")
 s.norm()
 s.dispAttributes()
+s.plot()

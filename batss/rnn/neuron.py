@@ -1,3 +1,4 @@
+import random
 import numpy as np
 from .dendrite import Dendrite
 
@@ -8,7 +9,7 @@ class Neuron:
     Each input dendrite is connected to an input neuron.
     """
 
-    def __init__(self, initial_activation=0, sources=None):
+    def __init__(self, initial_activation=None, sources=None):
         """Construct a new neuron.
 
         For each source neuron provided, the constructor creates
@@ -21,7 +22,10 @@ class Neuron:
                      Defaults to None.
         """
 
-        self.activation = initial_activation
+        if initial_activation:
+            self.activation = initial_activation
+        else:
+            self.activation = random.random()
         self.dendrites = []
         if sources:
             for source in sources:
