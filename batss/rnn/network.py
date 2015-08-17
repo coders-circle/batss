@@ -125,7 +125,6 @@ class Network:
         ws = []
         for pn in self.processors:
             ws.append([dendrite.weight for dendrite in pn.dendrites])
-
         return np.matrix(ws)
 
     def _get_y(self):
@@ -172,7 +171,7 @@ class Network:
         # formed from weighted-sums of inputs as diagonal elements
 
         weighted_sums = self._get_y()
-        vals = [wsum for wsum in weighted_sums]
+        vals = [activate_diff(wsum) for wsum in weighted_sums]
 
         # Create a diagonal matrix from the vals as diagonal
         # and find its inverse.
@@ -182,7 +181,7 @@ class Network:
         for i in range(len(vals)):
             for j in range(len(vals)):
                 if i == j:
-                    matrix[i][i] = 1.0/vals[i]
+                    matrix[i][i] = 0 if vals[i] == 0 else 1/vals[i]
 
         # Return the inverse of the diagonal matrix
         return np.matrix(matrix)
