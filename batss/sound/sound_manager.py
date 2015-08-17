@@ -32,15 +32,16 @@ class SoundManager:
                     time_array = time_array * 1000  # scale to milliseconds
                     count += 1
                     plt.subplot(len(sound), 2, count)
-                    print(count)
                     plt.plot(time_array, sound[j][i].sample, color='red')
             else:
                 time_array = np.arange(0, sound[j].sample.size, 1)
                 time_array = time_array / sound[j].rate
                 time_array = time_array * 1000  # scale to milliseconds
                 count += 1
+                if (count%2==0):
+                    count += 1
                 plt.subplot(len(sound), 2, count)
-                print(count)
+                count += 1
                 plt.plot(time_array, sound[j].sample, color='red')
         plt.ylabel('Amplitude')
         plt.xlabel('Time (ms)')
