@@ -92,7 +92,7 @@ class Network:
         output_neurons = self.processors[-self.num_outputs:]
         self.samples.append(self.get_outputs())
 
-    def train(self, input_series, learning_rate):
+    def train(self, input_series, learning_rate, output_series=None):
         """Train the recurrent neural network for bss.
 
         The real-time recurrent algorithm is used. While
@@ -105,6 +105,8 @@ class Network:
                           i.e. complete input signals in the form
                           [[input1, input2], [input1, input2],...].
             learning_rate: Learning rate of network.
+            output_series: Optional. The desired outputs of rnn for
+                           supervised training. None for unsupervised.
         """
 
         neurons = self.inputs + self.processors
@@ -115,10 +117,14 @@ class Network:
                 for k in range(len(self.processors)):
                     self._p[(i, j, k)] = 0.0
 
-        for inputs in input_series:
+        for iinput, inputs in enumerate(input_series):
             self.set_inputs(inputs)
             self.forward()
-            errors = self._get_errors_unsup().transpose().tolist()[0]
+
+            if output_series:
+                errors = self._get_errors_sup(output_series[iinput])
+            else:
+                errors = self._get_errors_unsup()
 
             vals = self._get_z().transpose().tolist()[0]
             fdash = [activate_diff(v) for v in vals]
@@ -142,7 +148,7 @@ class Network:
     # - Y = [previous processor activations] as column vector
     # - W = [weights of dendrites] as rectangular matrix
     # - Z = [weighted sum of inputs] as column vector = W * X
-    # - errors = [error for each processor] as column vector
+    # - errors = [error for each processor]
 
     def _get_x(self):
         # Use dendrites of just one processor neuron
@@ -167,7 +173,13 @@ class Network:
 
     # TODO:
     # Error vector for supervised training.
-    # def _get_errors_sup(self):
+    def _get_errors_sup(self, targets):
+        outputs = self.get_outputs()
+        errors = [0]*len(self.processors)
+        for i in range(self.num_outputs):
+            j = len(self.processors) - self.num_outputs + i
+            errors[j] = targets[i] - outputs[i]
+        return errors
 
     # Error vector for unsupervised training.
     def _get_errors_unsup(self, lags=None):
@@ -176,14 +188,12 @@ class Network:
         # and for each output neuron, the error is the cross
         # cross correlation between it and next output neuron.
 
-        vector = [0]*len(self.processors)
+        errors = [0]*len(self.processors)
         for i in range(self.num_outputs):
             j = len(self.processors) - self.num_outputs + i
             inext = (i+1) % self.num_outputs
-            vector[j] = self._get_cross_correlation(i, inext)
-
-        vector = np.matrix([vector]).transpose()
-        return vector
+            errors[j] = self._get_cross_correlation(i, inext)
+        return errors
 
     def _get_cross_correlation(self, output1, output2, lag=1):
         limit = len(self.samples) - lag
