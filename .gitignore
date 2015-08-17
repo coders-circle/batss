@@ -55,3 +55,8 @@ docs/_build/
 
 # PyBuilder
 target/
+
+# Visual Studio project files
+*.sln
+*.pyproj
+*.suo
