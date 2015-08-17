@@ -4,28 +4,44 @@ import numpy as np
 
 
 smanager = sound_manager.SoundManager()
-sounds = smanager.read_file("sound/WAV/X_linear.wav")
+sounds = smanager.read_file("sound/WAV/X_rss.wav")
 input1 = list(sounds[0].sample)
 input2 = list(sounds[1].sample)
 # mix = np.matrix([[0.5, 0.5], [0.5, -0.5]]) * np.matrix([input1, input2])
 
 rnn = network.Network(2, 10, 2)
 
-print(len(input1))
+ts = 100  # number of training samples is decreased by this factor
+in1 = input1[0::ts]
+in2 = input2[0::ts]
 
-finaloutputs = []
-for i in range(int(len(input1)/10)):
-    rnn.set_inputs([input1[i*10], input2[i*10]])
-    for j in range(10):
-        rnn.forward(False)
-        rnn.train()
-    rnn.forward(True)
+print("Number of samples: ", len(input1))
+print("Number of traning samples: ", len(in1))
+print("Training...")
 
-out1 = sound.Sound(np.asarray([s[0]*10 for s in rnn.samples]), sounds[0].rate)
-out2 = sound.Sound(np.asarray([s[1]*10 for s in rnn.samples]), sounds[0].rate)
+input_series = [[in1[i], in2[i]] for i in range(len(in1))]
+rnn.train(input_series, 0.5)
 
-smanager.plot(sounds)
-smanager.plot((out1, out2))
+print("Trained")
+print("Separating")
+
+rnn.samples = []
+for i in range(len(input1)):
+    rnn.set_inputs([input1[i], input2[i]])
+    rnn.forward()
+
+print("Separated")
+
+out1 = sound.Sound(np.asarray([s[0] for s in rnn.samples]), sounds[0].rate)
+out2 = sound.Sound(np.asarray([s[1] for s in rnn.samples]), sounds[0].rate)
+
+out1.reshape()
+out2.reshape()
+
+smanager.plot([sounds, (out1, out2)])
+
+smanager.save_file(out1, "sound/WAV/output1.wav")
+smanager.save_file(out2, "sound/WAV/output2.wav")
 
 # Uncomment following to test file loading and saving
 

@@ -46,7 +46,9 @@ class Network:
             Network: A new recurrent neural network loaded from the file.
         """
 
-        return pickle.load(open(filename, "rb"))
+        newrnn = pickle.load(open(filename, "rb"))
+        newrnn.samples = []
+        return newrnn
 
     def save(self, filename):
         """Save the current neural network to a file.
@@ -82,37 +84,65 @@ class Network:
 
         # TODO: Implement GPU version of this function.
 
-        outputs = self._get_y()
+        outputs = self._get_z().transpose().tolist()[0]
         for i, neuron in enumerate(self.processors):
             neuron.activation = activate(outputs[i])
 
         # store the output samples for future reference
         output_neurons = self.processors[-self.num_outputs:]
-        if addsamples:
-            self.samples.append(self.get_outputs())
+        self.samples.append(self.get_outputs())
 
-    def train(self):
-        """Train the recurrent neural network for bss."""
+    def train(self, input_series, learning_rate):
+        """Train the recurrent neural network for bss.
 
-        # TODO: Implement GPU version of this function.
+        The real-time recurrent algorithm is used. While
+        the original algorithm was for supervised learning,
+        I have changed the error calculations so it may (or may not)
+        work for unsupervised learning.
 
-        # Calculate the delta weight using formula given in the paper.
-        cfactor = self._get_cfactor()
-        error = self._get_error_vector()
+        Args:
+            input_series: Series of inputs to train the network
+                          i.e. complete input signals in the form
+                          [[input1, input2], [input1, input2],...].
+            learning_rate: Learning rate of network.
+        """
 
-        xm = self._get_x()
-        dwtm = cfactor * error * (1.0/(xm.transpose()*xm).tolist()[0][0])
-        dwtm = dwtm * xm.transpose()
+        neurons = self.inputs + self.processors
 
-        # Finally adjust weights of the dendrites.
-        for i, pn in enumerate(self.processors):
-            for j, dendrite in enumerate(pn.dendrites):
-                dendrite.weight += dwtm[i, j]
+        self._p = {}
+        for i in range(len(self.processors)):
+            for j in range(len(neurons)):
+                for k in range(len(self.processors)):
+                    self._p[(i, j, k)] = 0.0
+
+        for inputs in input_series:
+            self.set_inputs(inputs)
+            self.forward()
+            errors = self._get_errors_unsup().transpose().tolist()[0]
+
+            vals = self._get_z().transpose().tolist()[0]
+            fdash = [activate_diff(v) for v in vals]
+
+            newps = {}
+            for i, p in enumerate(self.processors):
+                for j, dn in enumerate(p.dendrites):
+                    sumv = 0
+                    for k in range(len(self.processors)):
+                        newp = fdash[k] * self._get_p(i, j, k)
+                        newps[(i, j, k)] = newp
+                        sumv += errors[k] * newp
+
+                    dwt = sumv * learning_rate
+                    dn.weight += dwt
+
+            self._p = newps
 
     # We need the following matrices.
     # - X = [input activations] as column vector
+    # - Y = [previous processor activations] as column vector
     # - W = [weights of dendrites] as rectangular matrix
-    # - Y = [weighted sum of inputs] as column vector = W * X
+    # - Z = [weighted sum of inputs] as column vector = W * X
+    # - errors = [error for each processor] as column vector
 
     def _get_x(self):
         # Use dendrites of just one processor neuron
@@ -121,26 +151,26 @@ class Network:
         xs = [dendrite.source.activation for dendrite in dendrites]
         return np.matrix(xs).transpose()
 
+    def _get_y(self):
+        return [n.activation for p in self.processors]
+
     def _get_w(self):
         ws = []
         for pn in self.processors:
             ws.append([dendrite.weight for dendrite in pn.dendrites])
         return np.matrix(ws)
 
-    def _get_y(self):
+    def _get_z(self):
         # Simply multiply the weight matrix by the input activation vector
-        outputs = (self._get_w() * self._get_x()).transpose().tolist()[0]
+        outputs = (self._get_w() * self._get_x())
         return outputs
 
-    # The training algorithm is based on 2-D system theory
-    # developed for RNN by Chow and Fang.
+    # TODO:
+    # Error vector for supervised training.
+    # def _get_errors_sup(self):
 
-    # For the training algorithm, we need to calculate
-    # the cross-correlation values between each pair of output signals
-    # and the inverse-diagonal matrix of weighted sum of inputs
-    # which I will call the C-Factor.
-
-    def _get_error_vector(self, lags=None):
+    # Error vector for unsupervised training.
+    def _get_errors_unsup(self, lags=None):
 
         # For each hidden neuron, the error is zero
         # and for each output neuron, the error is the cross
@@ -165,23 +195,18 @@ class Network:
             sumv += self.samples[m][output1] * self.samples[m+lag][output2]
         return sumv / limit
 
-    def _get_cfactor(self):
+    # Training helpers
 
-        # The C-Factor is the inverse of the diagonal matrix
-        # formed from weighted-sums of inputs as diagonal elements
+    def _get_p(self, i, j, k):
 
-        weighted_sums = self._get_y()
-        vals = [activate_diff(wsum) for wsum in weighted_sums]
+        pnode = self.processors[k]
+        sumv = 0
 
-        # Create a diagonal matrix from the vals as diagonal
-        # and find its inverse.
-        # Actually, inverse of diagonal matrix just has its diagonal
-        # elements inverted, so directly find that.
-        matrix = np.zeros((len(vals), len(vals))).tolist()
-        for i in range(len(vals)):
-            for j in range(len(vals)):
-                if i == j:
-                    matrix[i][i] = 0 if vals[i] == 0 else 1/vals[i]
+        pdendrites = pnode.dendrites[len(self.inputs):]
+        for ii, dn in enumerate(pdendrites):
+            sumv += dn.weight * self._p[(i, j, ii)]
 
-        # Return the inverse of the diagonal matrix
-        return np.matrix(matrix)
+        if i == k:
+            sumv += (self.inputs + self.processors)[j].activation
+
+        return sumv
