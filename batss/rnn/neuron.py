@@ -33,13 +33,13 @@ class Neuron:
 
 
 def activate(value):
-    """Sigmoid activation function"""
+    """Bipolar Sigmoid activation function"""
 
-    return 1.0 / (1+np.exp(-value))
+    return 2.0 / (1+np.exp(-value)) - 1
 
 
 def activate_diff(value):
     """Derivative of sigmoid activation function"""
 
     f = activate(value)
-    return f * (1-f)
+    return 0.5 * (1+f) * (1-f)

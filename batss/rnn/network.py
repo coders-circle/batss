@@ -174,6 +174,11 @@ class Network:
     # TODO:
     # Error vector for supervised training.
     def _get_errors_sup(self, targets):
+
+        # For hidden neurons, errors are zero
+        # and for output neurons, errors are differences
+        # between their activations and targets.
+
         outputs = self.get_outputs()
         errors = [0]*len(self.processors)
         for i in range(self.num_outputs):
