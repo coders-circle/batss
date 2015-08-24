@@ -86,7 +86,7 @@ def train_rnn(filename, input_files, output_files, learning_rate=0.05,
     print("Saved trained network to file: ", filename)
 
 
-def separate(filename, input_files, output_files):
+def separate(filename, input_files, output_files, extra=None):
     """Use recurrent neural network to separate given input sounds.
 
     Args:
@@ -129,16 +129,20 @@ def separate(filename, input_files, output_files):
         smanager.save_file(output, o)
 
     print("Done")
-    smanager.plot([tuple(inputsounds), tuple(outputs)])
+    if extra:
+        smanager.plot([tuple(inputsounds), tuple(outputs), extra])
+    else:
+        smanager.plot([tuple(inputsounds), tuple(outputs)])
 
 
-create_rnn("test.rnn", 2, 10, 2)
+# create_rnn("test2.rnn", 2, 20, 1)
 
-train_rnn("test.rnn",
-         input_files=["sound/WAV/X_rss.wav"],
-         output_files=["sound/WAV/Y1_rss.wav", "sound/WAV/Y2_rss.wav"],
-         learning_rate=0.05, iterations=2, num_samples=1000)
+train_rnn("test2.rnn",
+         input_files=["sound/WAV/X_rsm2.wav"],
+         output_files=["sound/WAV/Y2_rsm2.wav"],
+         learning_rate=0.005, iterations=3, num_samples=4000)
 
-separate("test.rnn",
-         input_files=["sound/WAV/X_rss.wav"],
-         output_files=["sound/WAV/output1.wav", "sound/WAV/output2.wav"])
+separate("test2.rnn",
+         input_files=["sound/WAV/X_rsm2.wav"],
+         output_files=["sound/WAV/output.wav"],
+         extra=sound_manager.SoundManager().read_file("sound/WAV/Y2_rsm2.wav"))

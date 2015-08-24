@@ -126,6 +126,8 @@ class Network:
             else:
                 errors = self._get_errors_unsup()
 
+            # print(errors[-2:])
+
             vals = self._get_z().transpose().tolist()[0]
             fdash = [activate_diff(v) for v in vals]
 
