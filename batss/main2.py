@@ -1,6 +1,8 @@
-from rnn import network
+from bptt import network
 from sound import sound, sound_manager
 import numpy as np
+import shutil
+import os.path
 
 
 def create_rnn(filename, inputs, hiddens, outputs):
@@ -20,7 +22,7 @@ def create_rnn(filename, inputs, hiddens, outputs):
 
 
 def train_rnn(filename, input_files, output_files, learning_rate=0.05,
-             iterations=1, num_samples=2000):
+              iterations=1, num_samples=2000, offset=0):
     """Train a recurrent neural network with given sounds.
 
     Args:
@@ -33,6 +35,7 @@ def train_rnn(filename, input_files, output_files, learning_rate=0.05,
         iterations: Number of iterations this training repeats for this set.
         num_samples: Number of first 'n' samples of inputs and outputs
                      to use during training.
+        offset: Offset of sound samples from beginning to use for training.
     """
 
     print("Loading neural network from file: ", filename)
@@ -42,28 +45,34 @@ def train_rnn(filename, input_files, output_files, learning_rate=0.05,
     print("Number of traning samples: ", num_samples)
     print("Collecting samples...")
 
+    nindex = offset + num_samples
+
     # Get every channel from every input sound file.
     inputs = []
     for i in input_files:
+        if len(inputs) == len(rnn.inputs):
+            break
         sounds = smanager.read_file(i)
         if type(sounds) == tuple:
             for s in sounds:
-                inputs.append(list(s.sample)[0:num_samples])
+                if len(inputs) == len(rnn.inputs):
+                    break
+                inputs.append(list(s.sample)[offset:nindex])
         else:
-            inputs.append(list(sounds.sample)[0:num_samples])
+            inputs.append(list(sounds.sample)[offset:nindex])
 
     # Get one channel from every output sound file.
     outputs = []
     for o in output_files:
         sounds = smanager.read_file(o)
         if type(sounds) == tuple:
-            outputs.append(list(sounds[0].sample)[0:num_samples])
+            outputs.append(list(sounds[0].sample)[offset:nindex])
         else:
-            outputs.append(list(sounds.sample)[0:num_samples])
+            outputs.append(list(sounds.sample)[offset:nindex])
 
     if len(rnn.inputs) > len(inputs):
         raise Exception("Not enough inputs provided for training")
-    if rnn.num_outputs > len(outputs):
+    if len(rnn.outputs) > len(outputs):
         raise Exception("Not enough outputs provided for training")
 
     input_series = []
@@ -79,9 +88,12 @@ def train_rnn(filename, input_files, output_files, learning_rate=0.05,
     print("Training...")
     for i in range(iterations):
         print("Iteration #", i)
-        rnn.train(input_series, learning_rate, output_series)
+        rnn.train(input_series, output_series, learning_rate)
 
     print("Done")
+    # Make a backup, in case this training has corrupted the original data.
+    if os.path.isfile(filename):
+        shutil.copyfile(filename, filename+"~")
     rnn.save(filename)
     print("Saved trained network to file: ", filename)
 
@@ -105,9 +117,13 @@ def separate(filename, input_files, output_files, extra=None):
     inputsounds = []
     rate = 0
     for i in input_files:
+        if len(inputs) == len(rnn.inputs):
+            break
         sounds = smanager.read_file(i)
         if type(sounds) == tuple:
             for s in sounds:
+                if len(inputs) == len(rnn.inputs):
+                    break
                 inputs.append(list(s.sample))
                 rate = s.rate
                 inputsounds.append(s)
@@ -134,15 +150,16 @@ def separate(filename, input_files, output_files, extra=None):
     else:
         smanager.plot([tuple(inputsounds), tuple(outputs)])
 
+filename = "test5.rnn"
 
-# create_rnn("test2.rnn", 2, 20, 1)
+create_rnn(filename, 1, 20, 1)
 
-train_rnn("test2.rnn",
-         input_files=["sound/WAV/X_rsm2.wav"],
-         output_files=["sound/WAV/Y2_rsm2.wav"],
-         learning_rate=0.005, iterations=3, num_samples=4000)
+train_rnn(filename,
+          input_files=["sound/WAV/X_rsm2.wav"],
+          output_files=["sound/WAV/Y1_rsm2.wav"],
+          learning_rate=0.0005, iterations=30, num_samples=4000, offset=000)
 
-separate("test2.rnn",
+separate(filename,
          input_files=["sound/WAV/X_rsm2.wav"],
          output_files=["sound/WAV/output.wav"],
-         extra=sound_manager.SoundManager().read_file("sound/WAV/Y2_rsm2.wav"))
+         extra=sound_manager.SoundManager().read_file("sound/WAV/Y1_rsm2.wav")[0])

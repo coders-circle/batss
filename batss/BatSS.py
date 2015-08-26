@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import argparse
 
 # Create the main parser
@@ -39,7 +40,6 @@ def check_for_null(arguments):
             print("You haven't specified the required argument. Type -h or --help for help.")
             exit()
     return
-
 
 if(args.which == 'create'):
     # list of all the arguments in create
