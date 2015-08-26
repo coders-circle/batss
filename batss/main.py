@@ -132,12 +132,12 @@ def separate(filename, input_files, output_files):
     smanager.plot([tuple(inputsounds), tuple(outputs)])
 
 
-create_rnn("test.rnn", 2, 10, 2)
+create_rnn("test.rnn", 2, 5, 2)
 
 train_rnn("test.rnn",
          input_files=["sound/WAV/X_rss.wav"],
          output_files=["sound/WAV/Y1_rss.wav", "sound/WAV/Y2_rss.wav"],
-         learning_rate=0.05, iterations=2, num_samples=1000)
+         learning_rate=0.05, iterations=10, num_samples=1000)
 
 separate("test.rnn",
          input_files=["sound/WAV/X_rss.wav"],
