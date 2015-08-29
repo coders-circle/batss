@@ -1,8 +1,18 @@
 import numpy as np
+import pyopencl as cl
 from random import random
 from .helpers import activate, activate_diff
+from clw import clwrapper
+from clw import kernel
 import pickle
 
+clw = clwrapper.CL()
+mf = cl.mem_flags
+matmult = kernel.Kernel(clw)
+matadd = kernel.Kernel(clw)
+
+matmult.load('matmult.cl')
+matadd.load('matadd.cl')
 
 class Network:
 
@@ -29,14 +39,31 @@ class Network:
             self.wiout.append([(random()*2-1)/num_hiddens for _ in range(num_inputs)])
 
         # Convert to numpy matrices.
-        self.inputs = np.matrix(self.inputs).transpose()
-        self.hiddens = np.matrix(self.hiddens).transpose()
-        self.outputs = np.matrix(self.outputs).transpose()
-        self.win = np.matrix(self.win)
-        self.wrec = np.matrix(self.wrec)
-        self.wout = np.matrix(self.wout)
-        self.wback = np.matrix(self.wback)
-        self.wiout = np.matrix(self.wiout)
+        self.inputs = np.matrix(self.inputs, dtype=np.float32).transpose()
+        self.hiddens = np.matrix(self.hiddens, dtype=np.float32).transpose()
+        self.outputs = np.matrix(self.outputs, dtpye=np.float32).transpose()
+        self.win = np.matrix(self.win, dtype=np.float32)
+        self.wrec = np.matrix(self.wrec, dtype=np.float32)
+        self.wout = np.matrix(self.wout, dtype=np.float32)
+        self.wback = np.matrix(self.wback, dtype=np.float32)
+        self.wiout = np.matrix(self.wiout, dtype=np.float32)
+
+        # device variables
+        self.d_inputs = cl.Buffer(clw.get_context(), 
+                                  mf.READ_ONLY | mf.COPY_HOST_PTR, 
+                                  hostbuf=self.inputs)
+        self.d_hiddens = cl.Buffer(clw.get_context(),
+                                   mf.READ_WRITE, size=self.hiddens.nbytes)
+        self.d_outputs = cl.buffer(clw.get_context(), 
+                                   mf.READ_WRITE, size=self.outputs.nbytes)
+        self.d_win = cl.buffer(clw.get_context(), 
+                               mf.READ_WRITE, size=self.win.nbytes)
+        self.d_wrec = cl.buffer(clw.get_context(), 
+                                mf.READ_WRITE, size=self.wrec.nbytes)
+        self.d_wback = cl.buffer(clw.get_context(), 
+                                 mf.READ_WRITE, size=self.wback.nbytes)
+        self.d_wiout = cl.buffer(clw.get_context(), 
+                                 mf.READ_WRITE, size=self.wiout.nbytes)
 
         # The collected samples.
         self.samples = []
@@ -96,6 +123,22 @@ class Network:
         vals = [activate(v) for v in vals]
         self.samples.append(vals)
         self.outputs = np.matrix(vals).transpose()
+
+    def d_forward(self):
+        resultSize = self.win.shape[0]*self.hiddens.shape[1]
+
+        d_vals = cl.Buffer(clw.get_context(), 
+                           mf.READ_WRITE, size=resultSize)
+        d_buff = cl.Buffer(clw.get_context(), 
+                           mf.READ_WRITE, size=resultSize)
+
+        matmult.execute((self.win.shape[0], self.hiddens.shape[1]), None, d_vals, self.d_win, 
+                        self.d_inputs, self.d_win.shape[0], self.d_hiddens.shape[0])
+        matmult.execute((self.wrec.shape[0], self.hiddens.shape[1]), None, d_buff, self.d_wrec,
+                         self.d_hiddens, self.d_wrec.shape[0], self.d_hiddens.shape[0])
+        matadd.execute(resultSize, None, d_vals, d_vals, d_buff)
+
+
 
     def train(self, input_series, output_series, rate=0.5):
 
