@@ -22,7 +22,7 @@ def create_rnn(filename, inputs, hiddens, outputs):
 
 
 def train_rnn(filename, input_files, output_files, learning_rate=0.05,
-              iterations=1, num_samples=2000, offset=0):
+              iterations=1, num_samples=2000, offset=0, frames=1):
     """Train a recurrent neural network with given sounds.
 
     Args:
@@ -33,9 +33,10 @@ def train_rnn(filename, input_files, output_files, learning_rate=0.05,
                       Only one channel of each sound file is used.
         learning_rate: Learning rate of the network.
         iterations: Number of iterations this training repeats for this set.
-        num_samples: Number of first 'n' samples of inputs and outputs
+        num_samples: Number of 'n' samples of inputs and outputs
                      to use during training.
         offset: Offset of sound samples from beginning to use for training.
+        frames: Number of frames each consisting of 'n' samples.
     """
 
     print("Loading neural network from file: ", filename)
@@ -45,52 +46,61 @@ def train_rnn(filename, input_files, output_files, learning_rate=0.05,
     print("Number of traning samples: ", num_samples)
     print("Collecting samples...")
 
-    nindex = offset + num_samples
-
     # Get every channel from every input sound file.
-    inputs = []
-    for i in input_files:
-        if len(inputs) == len(rnn.inputs):
-            break
-        sounds = smanager.read_file(i)
-        if type(sounds) == tuple:
-            for s in sounds:
-                if len(inputs) == len(rnn.inputs):
-                    break
-                inputs.append(list(s.sample)[offset:nindex])
-        else:
-            inputs.append(list(sounds.sample)[offset:nindex])
+    input_frames = []
+    for k in range(frames):
+        inputs = []
+        off = offset + num_samples*k
+        nindex = off + num_samples
+        for i in input_files:
+            if len(inputs) == len(rnn.inputs):
+                break
+            sounds = smanager.read_file(i)
+            if type(sounds) == tuple:
+                for s in sounds:
+                    if len(inputs) == len(rnn.inputs):
+                        break
+                    inputs.append(list(s.sample)[off:nindex])
+            else:
+                inputs.append(list(sounds.sample)[off:nindex])
+        input_frames.append(inputs)
 
     # Get one channel from every output sound file.
-    outputs = []
-    for o in output_files:
-        sounds = smanager.read_file(o)
-        if type(sounds) == tuple:
-            outputs.append(list(sounds[0].sample)[offset:nindex])
-        else:
-            outputs.append(list(sounds.sample)[offset:nindex])
+    output_frames = []
+    for k in range(frames):
+        outputs = []
+        off = offset + num_samples*k
+        nindex = off + num_samples
+        for o in output_files:
+            sounds = smanager.read_file(o)
+            if type(sounds) == tuple:
+                outputs.append(list(sounds[0].sample)[off:nindex])
+            else:
+                outputs.append(list(sounds.sample)[off:nindex])
+        output_frames.append(outputs)
 
     if len(rnn.inputs) > len(inputs):
         raise Exception("Not enough inputs provided for training")
     if len(rnn.outputs) > len(outputs):
         raise Exception("Not enough outputs provided for training")
 
-    input_series = []
-    for j in range(num_samples):
-        # samples = [(i[j]+1)/2 for i in inputs]
-        samples = [i[j] for i in inputs]
-        input_series.append(samples)
+    print("Training...")    
+    for iteration in range(iterations):
+        print("Iteration #", iteration)
+        for k in range(frames):
+            input_series = []
+            for j in range(num_samples):
+                # samples = [(i[j]+1)/2 for i in inputs]
+                samples = [i[j] for i in input_frames[k]]
+                input_series.append(samples)
 
-    output_series = []
-    for j in range(num_samples):
-        # samples = [1 if np.fabs(o[j]) > 0.15 else 0 for o in outputs]
-        samples = [o[j] for o in outputs]
-        output_series.append(samples)
+            output_series = []
+            for j in range(num_samples):
+                # samples = [1 if np.fabs(o[j]) > 0.15 else 0 for o in outputs]
+                samples = [o[j] for o in output_frames[k]]
+                output_series.append(samples)
 
-    print("Training...")
-    for i in range(iterations):
-        print("Iteration #", i)
-        rnn.train(input_series, output_series, learning_rate)
+            rnn.train(input_series, output_series, learning_rate)
 
     print("Done")
     # Make a backup, in case this training has corrupted the original data.
@@ -126,16 +136,19 @@ def separate(filename, input_files, output_files, extra=None):
             for s in sounds:
                 if len(inputs) == len(rnn.inputs):
                     break
+                s.sample = s.sample
                 inputs.append(list(s.sample))
                 rate = s.rate
                 inputsounds.append(s)
         else:
+            sounds.sample = s.sample
             inputs.append(list(sounds.sample))
             inputsounds.append(sounds)
             rate = sounds.rate
 
     print("Separating...")
     for i in range(len(inputs[0])):
+        # rnn.set_inputs([(inp[i]+1)/2 for inp in inputs])
         rnn.set_inputs([inp[i] for inp in inputs])
         rnn.forward()
 
@@ -143,6 +156,7 @@ def separate(filename, input_files, output_files, extra=None):
     outputs = []
     for i, o in enumerate(output_files):
         output = sound.Sound(np.asarray([s[i] for s in rnn.samples]), rate)
+        # output = sound.Sound(np.asarray([1 if s[i] > 7.0e-60 else 0 for s in rnn.samples]), rate)
         outputs.append(output)
         smanager.save_file(output, o)
 
@@ -152,16 +166,28 @@ def separate(filename, input_files, output_files, extra=None):
     else:
         smanager.plot([tuple(inputsounds), tuple(outputs)])
 
-filename = "test102.rnn"
+# filename = "khatri_guitar1.rnn"
+# filename = "khatri_voice1.rnn"
+filename = "test103"
 
-create_rnn(filename, 2, 20, 1)
+# create_rnn(filename, 2, 20, 1)
 
 train_rnn(filename,
           input_files=["sound/WAV/X_rsm2.wav"],
           output_files=["sound/WAV/Y1_rsm2.wav"],
-          learning_rate=0.05, iterations=100, num_samples=4000, offset=000)
+          learning_rate=0.1, iterations=30, num_samples=10, offset=0, frames=200)
 
 separate(filename,
          input_files=["sound/WAV/X_rsm2.wav"],
          output_files=["sound/WAV/output.wav"],
          extra=sound_manager.SoundManager().read_file("sound/WAV/Y1_rsm2.wav")[0])
+
+# train_rnn(filename,
+#           input_files=["sound/WAV/khatri/mixed.wav"],
+#           output_files=["sound/WAV/khatri/guitar.wav"],
+#           learning_rate=0.5, iterations=30, num_samples=1000, offset=0, frames=10)
+# 
+# separate(filename,
+#          input_files=["sound/WAV/khatri/mixed.wav"],
+#          output_files=["sound/WAV/khatri/output.wav"],
+#          extra=sound_manager.SoundManager().read_file("sound/WAV/khatri/guitar.wav")[0])

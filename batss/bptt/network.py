@@ -121,7 +121,7 @@ class Network:
         di = [None] * T
         for i in range(T-1, -1, -1):
             err = np.array(output_series[i]) - np.array(self.samples[i])
-            # if i == 2:
+            # if i == 2 or i == 10:
             #     print(err, output_series[i], self.samples[i])
             if i != T-1:
                 err += np.array((di[i+1] * self.wback).tolist()[0])
