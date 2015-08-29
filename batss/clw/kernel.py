@@ -11,5 +11,5 @@ class Kernel:
         fstr = "".join(file.readlines())
         self.program = pyopencl.Program(self.CL.get_context(), fstr).build()
 
-    def execute(self, numthreads, *vars):
-        self.program.main(self.CL.get_queue(), numthreads, None, *vars)
+    def execute(self, *vars):
+        self.program.main(self.CL.get_queue(), *vars)

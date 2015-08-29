@@ -18,13 +18,13 @@ class Network:
         self.wrec = []
         self.wback = []
         for _ in self.hiddens:
-            self.win.append([(random()*2-1)/num_inputs for _ in range(num_inputs)])
+            self.win.append([(random()*2-1)/num_hiddens for _ in range(num_inputs)])
             self.wrec.append([(random()*2-1)/num_hiddens for _ in range(num_hiddens)])
-            self.wback.append([(random()*2-1)/num_outputs for _ in range(num_outputs)])
+            self.wback.append([(random()*2-1)/num_hiddens for _ in range(num_outputs)])
 
         self.wout = []
         for _ in self.outputs:
-            self.wout.append([random() for _ in range(num_hiddens)])
+            self.wout.append([(random()*2-1)/num_hiddens for _ in range(num_hiddens)])
 
         # Convert to numpy matrices.
         self.inputs = np.matrix(self.inputs).transpose()
