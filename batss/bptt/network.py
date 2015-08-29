@@ -23,8 +23,10 @@ class Network:
             self.wback.append([(random()*2-1)/num_hiddens for _ in range(num_outputs)])
 
         self.wout = []
+        self.wiout = []
         for _ in self.outputs:
             self.wout.append([(random()*2-1)/num_hiddens for _ in range(num_hiddens)])
+            self.wiout.append([(random()*2-1)/num_hiddens for _ in range(num_inputs)])
 
         # Convert to numpy matrices.
         self.inputs = np.matrix(self.inputs).transpose()
@@ -34,6 +36,7 @@ class Network:
         self.wrec = np.matrix(self.wrec)
         self.wout = np.matrix(self.wout)
         self.wback = np.matrix(self.wback)
+        self.wiout = np.matrix(self.wiout)
 
         # The collected samples.
         self.samples = []
@@ -86,7 +89,9 @@ class Network:
         self.hiddens = np.matrix(vals).transpose()
 
         # For output neurons.
-        vals = (self.wout * self.hiddens).transpose().tolist()[0]
+        vals = self.wout * self.hiddens
+        vals += self.wiout * self.inputs
+        vals = vals.transpose().tolist()[0]
         self.opotentials.append(vals)
         vals = [activate(v) for v in vals]
         self.samples.append(vals)
@@ -116,6 +121,8 @@ class Network:
         di = [None] * T
         for i in range(T-1, -1, -1):
             err = np.array(output_series[i]) - np.array(self.samples[i])
+            # if i == 2:
+            #     print(err, output_series[i], self.samples[i])
             if i != T-1:
                 err += np.array((di[i+1] * self.wback).tolist()[0])
             dj[i] = err * ops[i]
@@ -137,4 +144,5 @@ class Network:
         self.wrec += rate * di.transpose() * x
         self.win += rate * di.transpose() * np.matrix(input_series)
         self.wout += rate * dj.transpose() * np.matrix(self.hsamples)
+        self.wiout += rate * dj.transpose() * np.matrix(input_series)
         self.wback += rate * di.transpose() * y

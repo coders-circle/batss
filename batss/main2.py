@@ -77,11 +77,13 @@ def train_rnn(filename, input_files, output_files, learning_rate=0.05,
 
     input_series = []
     for j in range(num_samples):
+        # samples = [(i[j]+1)/2 for i in inputs]
         samples = [i[j] for i in inputs]
         input_series.append(samples)
 
     output_series = []
     for j in range(num_samples):
+        # samples = [1 if np.fabs(o[j]) > 0.15 else 0 for o in outputs]
         samples = [o[j] for o in outputs]
         output_series.append(samples)
 
@@ -150,15 +152,14 @@ def separate(filename, input_files, output_files, extra=None):
     else:
         smanager.plot([tuple(inputsounds), tuple(outputs)])
 
+filename = "test102.rnn"
 
-filename = "atest.rnn"
-
-#create_rnn(filename, 2, 200, 1)
+create_rnn(filename, 2, 20, 1)
 
 train_rnn(filename,
           input_files=["sound/WAV/X_rsm2.wav"],
           output_files=["sound/WAV/Y1_rsm2.wav"],
-          learning_rate=0.5, iterations=10, num_samples=4000, offset=000)
+          learning_rate=0.05, iterations=100, num_samples=4000, offset=000)
 
 separate(filename,
          input_files=["sound/WAV/X_rsm2.wav"],

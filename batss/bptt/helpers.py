@@ -2,7 +2,7 @@ import numpy as np
 
 
 def activate(value):
-    """Bipolar Sigmoid activation function"""
+    """Sigmoid activation function"""
 
     return 2.0 / (1+np.exp(-value)) - 1
 
