@@ -6,17 +6,37 @@ from clw import clwrapper
 from clw import kernel
 import pickle
 
-clw = clwrapper.CL()
-mf = cl.mem_flags
-matmult = kernel.Kernel(clw)
-matadd = kernel.Kernel(clw)
+CL_INITIALIZED = False
 
-matmult.load('matmult.cl')
-matadd.load('matadd.cl')
+
+def init_cl():
+    if CL_INITIALIZED:
+        return
+
+    global clw, mf, matmult, matadd
+    clw = clwrapper.CL()
+    mf = cl.mem_flags
+    matmult = kernel.Kernel(clw)
+    matadd = kernel.Kernel(clw)
+
+    matmult.load('matmult.cl')
+    matadd.load('matadd.cl')
+
 
 class Network:
 
-    def __init__(self, num_inputs, num_hiddens, num_outputs):
+    def __init__(self, num_inputs, num_hiddens, num_outputs, use_gpu=False):
+        """Create a new recurrent neural network.
+
+        Create a new recurrent neural network that implements
+        backpropagation through time as its training algorithm.
+
+        Args:
+            num_inputs: Number of input layer neurons.
+            num_hiddens: Number of hidden layer neurons.
+            num_outputs: Number of output layer neurons.
+            use_gpu = Whether or not to use GPU for processing.
+        """
 
         # The neurons' initial activations.
         self.inputs = [0 for _ in range(num_inputs)]
@@ -28,42 +48,50 @@ class Network:
         self.wrec = []
         self.wback = []
         for _ in self.hiddens:
-            self.win.append([(random()*2-1)/num_hiddens for _ in range(num_inputs)])
-            self.wrec.append([(random()*2-1)/num_hiddens for _ in range(num_hiddens)])
-            self.wback.append([(random()*2-1)/num_hiddens for _ in range(num_outputs)])
+            win = [(random()-0.5)/num_hiddens for _ in range(num_inputs)]
+            self.win.append(win)
+            wrec = [(random()-0.5)/num_hiddens for _ in range(num_hiddens)]
+            self.wrec.append(wrec)
+            wback = [(random()-0.5)/num_hiddens for _ in range(num_outputs)]
+            self.wback.append(wback)
 
         self.wout = []
         self.wiout = []
         for _ in self.outputs:
-            self.wout.append([(random()*2-1)/num_hiddens for _ in range(num_hiddens)])
-            self.wiout.append([(random()*2-1)/num_hiddens for _ in range(num_inputs)])
+            wout = [(random()*2-1)/num_hiddens for _ in range(num_hiddens)]
+            self.wout.append(wout)
+            wiout = [(random()*2-1)/num_hiddens for _ in range(num_inputs)]
+            self.wiout.append(wiout)
 
         # Convert to numpy matrices.
         self.inputs = np.matrix(self.inputs, dtype=np.float32).transpose()
         self.hiddens = np.matrix(self.hiddens, dtype=np.float32).transpose()
-        self.outputs = np.matrix(self.outputs, dtpye=np.float32).transpose()
+        self.outputs = np.matrix(self.outputs, dtype=np.float32).transpose()
         self.win = np.matrix(self.win, dtype=np.float32)
         self.wrec = np.matrix(self.wrec, dtype=np.float32)
         self.wout = np.matrix(self.wout, dtype=np.float32)
         self.wback = np.matrix(self.wback, dtype=np.float32)
         self.wiout = np.matrix(self.wiout, dtype=np.float32)
+        self.use_gpu = use_gpu
 
         # device variables
-        self.d_inputs = cl.Buffer(clw.get_context(), 
-                                  mf.READ_ONLY | mf.COPY_HOST_PTR, 
-                                  hostbuf=self.inputs)
-        self.d_hiddens = cl.Buffer(clw.get_context(),
-                                   mf.READ_WRITE, size=self.hiddens.nbytes)
-        self.d_outputs = cl.buffer(clw.get_context(), 
-                                   mf.READ_WRITE, size=self.outputs.nbytes)
-        self.d_win = cl.buffer(clw.get_context(), 
-                               mf.READ_WRITE, size=self.win.nbytes)
-        self.d_wrec = cl.buffer(clw.get_context(), 
-                                mf.READ_WRITE, size=self.wrec.nbytes)
-        self.d_wback = cl.buffer(clw.get_context(), 
-                                 mf.READ_WRITE, size=self.wback.nbytes)
-        self.d_wiout = cl.buffer(clw.get_context(), 
-                                 mf.READ_WRITE, size=self.wiout.nbytes)
+        if use_gpu:
+            init_cl()
+            self.d_inputs = cl.Buffer(clw.get_context(),
+                                      mf.READ_ONLY | mf.COPY_HOST_PTR,
+                                      hostbuf=self.inputs)
+            self.d_hiddens = cl.Buffer(clw.get_context(),
+                                       mf.READ_WRITE, size=self.hiddens.nbytes)
+            self.d_outputs = cl.buffer(clw.get_context(),
+                                       mf.READ_WRITE, size=self.outputs.nbytes)
+            self.d_win = cl.buffer(clw.get_context(),
+                                   mf.READ_WRITE, size=self.win.nbytes)
+            self.d_wrec = cl.buffer(clw.get_context(),
+                                    mf.READ_WRITE, size=self.wrec.nbytes)
+            self.d_wback = cl.buffer(clw.get_context(),
+                                     mf.READ_WRITE, size=self.wback.nbytes)
+            self.d_wiout = cl.buffer(clw.get_context(),
+                                     mf.READ_WRITE, size=self.wiout.nbytes)
 
         # The collected samples.
         self.samples = []
@@ -81,11 +109,18 @@ class Network:
             Network: A new recurrent neural network loaded from the file.
         """
 
-        newrnn = pickle.load(open(filename, "rb"))
-        newrnn.samples = []
-        newrnn.hsamples = []
-        newrnn.hpotentials = []
-        newrnn.opotentials = []
+        newrnn = None
+        with open(filename, "rb") as f:
+            ni = pickle.load(f)
+            nh = pickle.load(f)
+            no = pickle.load(f)
+            ug = pickle.load(f)
+            newrnn = Network(ni, nh, no, ug)
+            newrnn.win = pickle.load(f)
+            newrnn.wrec = pickle.load(f)
+            newrnn.wout = pickle.load(f)
+            newrnn.wback = pickle.load(f)
+            newrnn.wiout = pickle.load(f)
         return newrnn
 
     def save(self, filename):
@@ -95,15 +130,37 @@ class Network:
             filename: File to save rnn to.
         """
 
-        pickle.dump(self, open(filename, "wb"))
+        with open(filename, "wb") as f:
+            pickle.dump(len(self.inputs), f)
+            pickle.dump(len(self.hiddens), f)
+            pickle.dump(len(self.outputs), f)
+            pickle.dump(self.use_gpu, f)
+            pickle.dump(self.win, f)
+            pickle.dump(self.wrec, f)
+            pickle.dump(self.wout, f)
+            pickle.dump(self.wback, f)
+            pickle.dump(self.wiout, f)
 
     def set_inputs(self, inputs):
+        """Set the activations for the input neurons.
+
+        Args:
+            inputs: List of input values to the network.
+        """
+
         self.inputs = np.matrix(inputs).transpose()
 
     def get_outputs(self):
+        """Get the activations from the output neurons.
+
+        Args:
+            list: List of output values from the network.
+        """
+
         return self.outputs.transpose().tolist()[0]
 
     def forward(self):
+        """Forward the inputs through the network to get outputs."""
 
         # For hidden neurons.
         vals = self.win * self.inputs
@@ -127,20 +184,27 @@ class Network:
     def d_forward(self):
         resultSize = self.win.shape[0]*self.hiddens.shape[1]
 
-        d_vals = cl.Buffer(clw.get_context(), 
+        d_vals = cl.Buffer(clw.get_context(),
                            mf.READ_WRITE, size=resultSize)
-        d_buff = cl.Buffer(clw.get_context(), 
+        d_buff = cl.Buffer(clw.get_context(),
                            mf.READ_WRITE, size=resultSize)
 
-        matmult.execute((self.win.shape[0], self.hiddens.shape[1]), None, d_vals, self.d_win, 
-                        self.d_inputs, self.d_win.shape[0], self.d_hiddens.shape[0])
-        matmult.execute((self.wrec.shape[0], self.hiddens.shape[1]), None, d_buff, self.d_wrec,
-                         self.d_hiddens, self.d_wrec.shape[0], self.d_hiddens.shape[0])
+        matmult.execute((self.win.shape[0], self.hiddens.shape[1]), None,
+                        d_vals, self.d_win, self.d_inputs,
+                        self.d_win.shape[0], self.d_hiddens.shape[0])
+        matmult.execute((self.wrec.shape[0], self.hiddens.shape[1]), None,
+                        d_buff, self.d_wrec, self.d_hiddens,
+                        self.d_wrec.shape[0], self.d_hiddens.shape[0])
         matadd.execute(resultSize, None, d_vals, d_vals, d_buff)
 
-
-
     def train(self, input_series, output_series, rate=0.5):
+        """Train the network using BPTT using given supervise-set.
+
+        Args:
+            input_series: Sequence of list of inputs at discreet time.
+            output_series: Sequence of list of corresponding outputs.
+            rate: Learning rate of the neural network.
+        """
 
         # Step 1: Forward pass.
         self.samples = []

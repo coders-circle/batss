@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import argparse
+from main import create_rnn, train_rnn, separate
 
 # Create the main parser
 parser = argparse.ArgumentParser(description='Bat Signal Separator')
@@ -38,21 +39,26 @@ def check_for_null(arguments):
     for x in arguments:
         if x is None:
             print("You haven't specified the required argument. Type -h or --help for help.")
-            exit()
-    return
+            return True
+    return False
 
-if(args.which == 'create'):
-    # list of all the arguments in create
-    arguments = [args.training_file, args.no_inputs, args.no_outputs, args.no_hiddens]
-    check_for_null(arguments)
-    print("Success" + args.which, arguments)
-elif(args.which == 'train'):
-    # list of all the arguments in train
-    arguments = [args.training_file, args.inputs, args.outputs, args.training_rate, args.no_iterations, args.no_samples]
-    check_for_null(arguments[:3])
-    print("Success" + args.which, arguments)
-elif(args.which == 'separate'):
-    # list of all the arguments in separate
-    arguments = [args.training_file, args.inputs, args.outputs]
-    check_for_null(arguments)
-    print("Success" + args.which, arguments)
+if "which" in args:
+    if args.which == 'create':
+        # list of all the arguments in create
+        arguments = [args.training_file, args.no_inputs, args.no_outputs, args.no_hiddens]
+        if not check_for_null(arguments):
+            create_rnn(args.training_file, args.no_inputs, args.no_outputs, args.no_hiddens)
+
+    elif args.which == 'train':
+        # list of all the arguments in train
+        arguments = [args.training_file, args.inputs, args.outputs, args.training_rate, args.no_iterations, args.no_samples]
+        if not check_for_null(arguments[:3]):
+            print("Success" + args.which, arguments)
+
+    elif args.which == 'separate':
+        # list of all the arguments in separate
+        arguments = [args.training_file, args.inputs, args.outputs]
+        if not check_for_null(arguments):
+            print("Success" + args.which, arguments)
+else:
+    print("You haven't specified any command. Type -h or --help for help.")
