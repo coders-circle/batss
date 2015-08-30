@@ -30,7 +30,7 @@ train_parser.set_defaults(which='train')
 
 # for Separate action type
 separate_parser = subparsers.add_parser('separate', help="Separate signals.")
-separate_parser.add_argument('-f', '--fiename', action="store", dest="training_file", default=None, help="Name of training file.")
+separate_parser.add_argument('-f', '--filename', action="store", dest="training_file", default=None, help="Name of training file.")
 separate_parser.add_argument('-i', '--inputs', action="store", dest="inputs", nargs='+', default=None, help="Name of input files.")
 separate_parser.add_argument('-o', '--outputs', action="store", dest="outputs", nargs='+', default=None, help="Name of output files.")
 separate_parser.add_argument('-e', '--extras', action="store", dest="extras", default=None, help="Name of output files.")

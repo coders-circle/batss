@@ -2,9 +2,9 @@ import numpy as np
 import pyopencl as cl
 from random import random
 from .helpers import activate, activate_diff
-from clw import clwrapper
-from clw import kernel
+from clw import clwrapper, kernel
 import pickle
+import copy
 
 CL_INITIALIZED = False
 
@@ -82,18 +82,20 @@ class Network:
                                       hostbuf=self.inputs)
             self.d_hiddens = cl.Buffer(clw.get_context(),
                                        mf.READ_WRITE, size=self.hiddens.nbytes)
-            self.d_outputs = cl.buffer(clw.get_context(),
+            self.d_outputs = cl.Buffer(clw.get_context(),
                                        mf.READ_WRITE, size=self.outputs.nbytes)
-            self.d_win = cl.buffer(clw.get_context(),
+            self.d_win = cl.Buffer(clw.get_context(),
                                    mf.READ_WRITE, size=self.win.nbytes)
-            self.d_wrec = cl.buffer(clw.get_context(),
+            self.d_wrec = cl.Buffer(clw.get_context(),
                                     mf.READ_WRITE, size=self.wrec.nbytes)
-            self.d_wback = cl.buffer(clw.get_context(),
+            self.d_wback = cl.Buffer(clw.get_context(),
                                      mf.READ_WRITE, size=self.wback.nbytes)
-            self.d_wiout = cl.buffer(clw.get_context(),
+            self.d_wiout = cl.Buffer(clw.get_context(),
                                      mf.READ_WRITE, size=self.wiout.nbytes)
 
-        # The collected samples.
+        self._reset_samples()
+
+    def _reset_samples(self):
         self.samples = []
         self.hsamples = []
         self.hpotentials = []
@@ -204,13 +206,13 @@ class Network:
             input_series: Sequence of list of inputs at discreet time.
             output_series: Sequence of list of corresponding outputs.
             rate: Learning rate of the neural network.
+
+        Returns:
+            Average error during the training.
         """
 
         # Step 1: Forward pass.
-        self.samples = []
-        self.hsamples = []
-        self.hpotentials = []
-        self.opotentials = []
+        self._reset_samples()
         for inputs in input_series:
             self.set_inputs(inputs)
             self.forward()
@@ -226,8 +228,10 @@ class Network:
         T = len(input_series)
         dj = [None] * T
         di = [None] * T
+        errs = []
         for i in range(T-1, -1, -1):
             err = np.array(output_series[i]) - np.array(self.samples[i])
+            errs.append(err)
             # if i == 2 or i == 10:
             #     print(err, output_series[i], self.samples[i])
             if i != T-1:
@@ -253,3 +257,21 @@ class Network:
         self.wout += rate * dj.transpose() * np.matrix(self.hsamples)
         self.wiout += rate * dj.transpose() * np.matrix(input_series)
         self.wback += rate * di.transpose() * y
+
+        errs = [np.average(err) for err in errs]
+        errs = np.average(errs)
+        return errs
+
+    def backup(self):
+        self.bwrec = copy.copy(self.wrec)
+        self.bwin = copy.copy(self.win)
+        self.bwout = copy.copy(self.wout)
+        self.bwiout = copy.copy(self.wiout)
+        self.bwback = copy.copy(self.wback)
+
+    def restore(self):
+        self.wrec = copy.copy(self.bwrec)
+        self.win = copy.copy(self.bwin)
+        self.wout = copy.copy(self.bwout)
+        self.wiout = copy.copy(self.bwiout)
+        self.wback = copy.copy(self.bwback)

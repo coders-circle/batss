@@ -6,7 +6,8 @@ import os.path
 
 
 def ordinal(n):
-    return "%d%s" % (n, "tsnrhtdd"[(n/10 % 10 != 1) * (n % 10 < 4)*n % 10::4])
+    s = "tsnrhtdd"
+    return "%d%s" % (n, s[(int(n/10) % 10 != 1) * (n % 10 < 4)*n % 10::4])
 
 
 def create_rnn(filename, inputs, hiddens, outputs):
@@ -30,22 +31,24 @@ def create_rnn(filename, inputs, hiddens, outputs):
     print("Saved new neural network to file:", filename)
 
 
-def train_rnn(filename, input_files, output_files, learning_rate=0.05,
-              iterations=1, num_samples=2000, offset=0, frames=1):
+def train_rnn(filename, input_files, output_files, learning_rate=0.3,
+              iterations=30, num_samples=10, offset=0, frames=100,
+              log_file=None):
     """Train a recurrent neural network with given sounds.
 
     Args:
         filename: File to load rnn from.
         input: List of input sound files for training.
-                     Every channel of every sound file is used.
+               Every channel of every sound file is used.
         output: List of output sound files for training.
-                      Only one channel of each sound file is used.
+                Only one channel of each sound file is used.
         learning_rate: Learning rate of the network.
         iterations: Number of iterations this training repeats for this set.
         num_samples: Number of 'n' samples of inputs and outputs
                      to use during training.
         offset: Offset of sound samples from beginning to use for training.
         frames: Number of frames each consisting of 'n' samples.
+        log_file: File to save log of error and learning rate per iteration.
     """
 
     print("Loading neural network from file: ", filename)
@@ -73,6 +76,7 @@ def train_rnn(filename, input_files, output_files, learning_rate=0.05,
             if len(inputs) == len(rnn.inputs):
                 break
             if i not in input_sounds:
+                print("Reading ", i)
                 sounds = smanager.read_file(i)
                 input_sounds[i] = sounds
             else:
@@ -95,6 +99,7 @@ def train_rnn(filename, input_files, output_files, learning_rate=0.05,
         nindex = off + num_samples
         for o in output_files:
             if o not in output_sounds:
+                print("Reading ", o)
                 sounds = smanager.read_file(o)
                 output_sounds[o] = sounds
             else:
@@ -110,9 +115,17 @@ def train_rnn(filename, input_files, output_files, learning_rate=0.05,
     if len(rnn.outputs) > len(outputs):
         raise Exception("Not enough outputs provided for training")
 
+    if log_file:
+        f = open(log_file, "w")
+
     print("Training...")
+    last_err = 999999
     for iteration in range(iterations):
-        print(ordinal(iteration+1), "iteration")
+        oi = ordinal(iteration+1)
+        print(oi, "iteration", "Learning Rate", learning_rate)
+
+        errs = []
+        rnn.backup()
         for k in range(frames):
             input_series = []
             for j in range(num_samples):
@@ -124,7 +137,32 @@ def train_rnn(filename, input_files, output_files, learning_rate=0.05,
                 samples = [o[j] for o in output_frames[k]]
                 output_series.append(samples)
 
-            rnn.train(input_series, output_series, learning_rate)
+            # rate = learning_rate
+            # if annealing_time > 0:
+            #     rate /= 1 + iteration/annealing_time
+
+            e = rnn.train(input_series, output_series, learning_rate)
+            errs.append(e)
+
+        aerr = np.average(errs)
+
+        if log_file:
+            output = "Average error: " + str(aerr) + \
+                     " Learning Rate: " + str(learning_rate) + "\n"
+            f.write(output)
+
+        diff_err = abs(aerr) - abs(last_err)
+        if diff_err <= 0:
+            learning_rate += 5/100 * learning_rate
+        elif diff_err > 10e-10:
+            rnn.restore()
+            learning_rate *= 1/2
+        else:
+            learning_rate -= 5/100 * learning_rate
+        last_err = aerr
+
+    if log_file:
+        f.close()
 
     print("Done")
     # Make a backup, in case this training has corrupted the original data.
@@ -191,16 +229,36 @@ def separate(filename, input_files, output_files, extra=None):
 
 
 if __name__ == "__main__":
+    sm = sound_manager.SoundManager()
+
+    # filename = "sample_networks/2_speeches.rnn"
+    # create_rnn(filename, 2, 20, 2)
+
+    # train_rnn(filename,
+    #           input_files=["sound/WAV/X_rss.wav"],
+    #           output_files=["sound/WAV/Y1_rss.wav", "sound/WAV/Y2_rss.wav"],
+    #           learning_rate=5, iterations=30,
+    #           num_samples=10, offset=0, frames=200,
+    #           log_file=filename[:-4]+"_log.txt")
+
+    # extra1 = sm.read_file("sound/WAV/Y1_rss.wav")[0]
+    # extra2 = sm.read_file("sound/WAV/Y2_rss.wav")[0]
+    # separate(filename,
+    #          input_files=["sound/WAV/X_rss.wav"],
+    #          output_files=["sound/WAV/output1.wav", "sound/WAV/output2.wav"],
+    #          extra=(extra1, extra2))
+
     filename = "sample_networks/first_working.rnn"
-    # create_rnn(filename, 2, 20, 1)
+    create_rnn(filename, 2, 40, 1)
 
     train_rnn(filename,
               input_files=["sound/WAV/X_rsm2.wav"],
               output_files=["sound/WAV/Y1_rsm2.wav"],
-              learning_rate=0.1, iterations=30,
-              num_samples=10, offset=0, frames=200)
+              learning_rate=1, iterations=100000,
+              num_samples=10, offset=0, frames=200,
+              log_file=filename[:-4]+"_log.txt")
 
-    extra = sound_manager.SoundManager().read_file("sound/WAV/Y1_rsm2.wav")[0]
+    extra = sm.read_file("sound/WAV/Y1_rsm2.wav")[0]
     separate(filename,
              input_files=["sound/WAV/X_rsm2.wav"],
              output_files=["sound/WAV/output.wav"],
