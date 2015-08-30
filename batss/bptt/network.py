@@ -54,15 +54,15 @@ class Network:
                                   hostbuf=self.inputs)
         self.d_hiddens = cl.Buffer(clw.get_context(),
                                    mf.READ_WRITE, size=self.hiddens.nbytes)
-        self.d_outputs = cl.buffer(clw.get_context(), 
+        self.d_outputs = cl.Buffer(clw.get_context(), 
                                    mf.READ_WRITE, size=self.outputs.nbytes)
-        self.d_win = cl.buffer(clw.get_context(), 
+        self.d_win = cl.Buffer(clw.get_context(), 
                                mf.READ_WRITE, size=self.win.nbytes)
-        self.d_wrec = cl.buffer(clw.get_context(), 
+        self.d_wrec = cl.Buffer(clw.get_context(), 
                                 mf.READ_WRITE, size=self.wrec.nbytes)
-        self.d_wback = cl.buffer(clw.get_context(), 
+        self.d_wback = cl.Buffer(clw.get_context(), 
                                  mf.READ_WRITE, size=self.wback.nbytes)
-        self.d_wiout = cl.buffer(clw.get_context(), 
+        self.d_wiout = cl.Buffer(clw.get_context(), 
                                  mf.READ_WRITE, size=self.wiout.nbytes)
 
         # The collected samples.
