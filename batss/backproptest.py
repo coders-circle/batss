@@ -14,9 +14,10 @@ samples = 1000
 rnn = network.Network(samples, samples, samples)
 rate = 0.03
 
-for k in range(30):
+for k in range(1000):
     print("Iteration #", k, "Learning Rate:", rate)
-    for j in range(int(len(target0.sample)/samples)):
+    errs = []
+    for j in range(int(len(target0.sample)/samples/4)):
         off = j * samples
         e = rnn.train(input0.sample[off:off+samples], target0.sample[off:off+samples], rate)
         errs.append(e)

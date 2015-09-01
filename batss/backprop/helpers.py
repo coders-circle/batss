@@ -6,8 +6,6 @@ def activate(value):
     """Bipolar Sigmoid activation function"""
 
     t = 2.0 / (1+np.exp(-value)) - 1
-    if t >= 1:
-        print(value)
     return t
 
 
@@ -20,4 +18,5 @@ def activate_diff(value):
 
 def get_random_weight(div_factor=1):
     """Get a random value in range (-.5, .5) divided by given factor"""
+
     return (random.random() - 0.5) / (div_factor)
