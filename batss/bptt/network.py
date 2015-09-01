@@ -226,8 +226,8 @@ class Network:
 
         # Step 2: Calculate error propagations.
         T = len(input_series)
-        dj = [None] * T
-        di = [None] * T
+        dj = [None] * T # n outputs
+        di = [None] * T # n hiddens
         errs = []
         for i in range(T-1, -1, -1):
             err = np.array(output_series[i]) - np.array(self.samples[i])

@@ -249,14 +249,14 @@ if __name__ == "__main__":
     #          extra=(extra1, extra2))
 
     filename = "sample_networks/first_working.rnn"
-    create_rnn(filename, 2, 40, 1)
+    #create_rnn(filename, 2, 40, 1)
 
-    train_rnn(filename,
-              input_files=["sound/WAV/X_rsm2.wav"],
-              output_files=["sound/WAV/Y1_rsm2.wav"],
-              learning_rate=1, iterations=100000,
-              num_samples=10, offset=0, frames=200,
-              log_file=filename[:-4]+"_log.txt")
+    #train_rnn(filename,
+    #          input_files=["sound/WAV/X_rsm2.wav"],
+    #          output_files=["sound/WAV/Y1_rsm2.wav"],
+    #          learning_rate=1, iterations=2000,
+    #          num_samples=10, offset=0, frames=200,
+    #          log_file=filename[:-4]+"_log.txt")
 
     extra = sm.read_file("sound/WAV/Y1_rsm2.wav")[0]
     separate(filename,
