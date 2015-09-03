@@ -1,6 +1,7 @@
 import shutil
 import pickle
 import os.path
+import time
 import numpy as np
 
 from backprop import network
@@ -37,13 +38,13 @@ def load_network(filename):
         samples = pickle.load(file)
         ni = pickle.load(file)
         no = pickle.load(file)
-        nn = new_network(samples, ni,no)
+        nn = new_network(samples, ni, no)
         nn.load(file)
 
     return nn, samples
 
 
-def create_network(filename, num_samples, num_inputs, num_outputs):
+def create_network(filename, num_samples, num_inputs=1, num_outputs=1):
     """Create a new neural network in a file.
 
     The number of input, hidden and output neurons are automatically
@@ -70,9 +71,8 @@ def create_network(filename, num_samples, num_inputs, num_outputs):
     print("Saved new neural network to file:", filename)
 
 
-def train_network(filename, input_files, output_files, learning_rate=0.3,
-              iterations=30, offset=0, frames=None,
-              log_file=None):
+def train_network(filename, input_files, output_files, learning_rate=0.03,
+                  iterations=30, offset=0, frames=None):
     """Train a neural network with given sound files.
 
     Args:
@@ -85,12 +85,13 @@ def train_network(filename, input_files, output_files, learning_rate=0.3,
         iterations: Number of iterations this training repeats for this set.
         offset: Offset of sound samples from beginning to use for training.
         frames: Number of frames to use for training.
-        log_file: File to save log of errors during the iterations.
     """
 
     print("Loading neural network from file: ", filename)
     nn, num_samples = load_network(filename)
     smanager = sound_manager.SoundManager()
+    num_inputs = int(len(nn.input_layer.x) / num_samples)
+    num_outputs = int(len(nn.output_layer.x) / num_samples)
 
     # Display some info about the neural network.
     print("Number of neurons:")
@@ -102,12 +103,21 @@ def train_network(filename, input_files, output_files, learning_rate=0.3,
     print("Number of iterations: ", iterations)
     print("Collecting samples...")
 
+    # Log-file name.
+    log_file = os.path.splitext(filename)[0] + "_"
+    log_file += time.strftime("%b-%d-%Y_%H%M%S")
+    log_file += ".log"
+
     # Get every channel from every input sound file.
     inputs = []
     for i in input_files:
+        if len(inputs) == num_inputs:
+            break
         sounds = sm.read_file(i)
         if type(sounds) is tuple:
             for s in sounds:
+                if len(inputs) == num_inputs:
+                    break
                 inputs.append(list(s.sample))
         else:
             inputs.append(list(sounds.sample))
@@ -115,19 +125,28 @@ def train_network(filename, input_files, output_files, learning_rate=0.3,
     # Get one channel from every output sound file.
     outputs = []
     for o in output_files:
+        if len(outputs) == num_outputs:
+            break
         sounds = sm.read_file(o)
         if type(sounds) is tuple:
             outputs.append(list(sounds[0].sample))
         else:
             outputs.append(list(sounds.sample))
 
+    if num_inputs > len(inputs):
+        raise Exception("Not enough inputs provided for training")
+    if num_outputs > len(outputs):
+        raise Exception("Not enough outputs provided for training")
+
     if not frames:
         frames = int(len(outputs[0])/num_samples)
+
+    f = open(log_file, "w")
 
     for k in range(iterations):
         oi = ordinal(k+1)
         print(oi, "iteration")
-    
+
         errs = []
         for j in range(frames):
             off = offset + j * num_samples
@@ -139,11 +158,11 @@ def train_network(filename, input_files, output_files, learning_rate=0.3,
             errs.append(e)
 
         aerr = np.average(errs)
-    # if len(nn.inputs) > len(inputs):
-    #     raise Exception("Not enough inputs provided for training")
-    # if len(nn.outputs) > len(outputs):
-    #     raise Exception("Not enough outputs provided for training")
+        if log_file:
+            f.write("Iteration: " + str(k) + " Average Error: " + str(aerr))
+            f.write("\n")
 
+    f.close()
 
     print("Done")
     # Make a backup, in case this training has corrupted the original data.
@@ -160,21 +179,26 @@ def separate(filename, input_files, output_files, extra=None):
         filename: File to load neural network from.
         input_files: Input sound files that need to be separated.
         output_files: Files to output separated sounds.
-        extra: Extra sounds to plot for comparision.
+        extra: Extra sound files to plot.
     """
 
     print("Loading neural network from file: ", filename)
     nn, num_samples = load_network(filename)
     smanager = sound_manager.SoundManager()
+    num_inputs = int(len(nn.input_layer.x) / num_samples)
 
     # Get every channel from every input sound file.
     print("Collecting input samples...")
     inputs = []
     inputsounds = []
     for i in input_files:
+        if len(inputs) == num_inputs:
+            break
         sounds = sm.read_file(i)
         if type(sounds) is tuple:
             for s in sounds:
+                if len(inputs) == num_inputs:
+                    break
                 inputs.append(list(s.sample))
                 inputsounds.append(s)
         else:
@@ -204,7 +228,10 @@ def separate(filename, input_files, output_files, extra=None):
 
     print("Done")
     if extra:
-        smanager.plot([tuple(inputsounds), tuple(outputsounds), extra])
+        es = []
+        for ex in extra:
+            es.append(smanager.read_file(ex)[0])
+        smanager.plot([tuple(inputsounds), tuple(outputsounds), tuple(es)])
     else:
         smanager.plot([tuple(inputsounds), tuple(outputsounds)])
 
@@ -216,11 +243,10 @@ if __name__ == "__main__":
     # create_network(filename, 1000, 2, 2)
 
     # train_network(filename,
-    #           input_files=["sound/WAV/X_rss.wav"],
-    #           output_files=["sound/WAV/Y1_rss.wav", "sound/WAV/Y2_rss.wav"],
-    #           learning_rate=0.03, iterations=20,
-    #           offset=0, frames=None,
-    #           log_file=filename[:-4]+"_log.txt")
+    #               input_files=["sound/WAV/X_rss.wav"],
+    #               output_files=["sound/WAV/Y1_rss.wav", "sound/WAV/Y2_rss.wav"],
+    #               learning_rate=0.03, iterations=20,
+    #               offset=0, frames=None)
 
     # extra1 = sm.read_file("sound/WAV/Y1_rss.wav")[0]
     # extra2 = sm.read_file("sound/WAV/Y2_rss.wav")[0]
@@ -230,17 +256,15 @@ if __name__ == "__main__":
     #          extra=(extra1, extra2))
 
     filename = "sample_networks/test1.nn"
-    create_network(filename, 1000, 1, 1)
+    # create_network(filename, 1000, 1, 1)
 
-    train_network(filename,
-              input_files=["sound/WAV/X_rsm2.wav"],
-              output_files=["sound/WAV/Y1_rsm2.wav"],
-              learning_rate=0.03, iterations=20,
-              offset=0, frames=None,
-              log_file=filename[:-4]+"_log.txt")
+    # train_network(filename,
+    #               input_files=["sound/WAV/X_rsm2.wav"],
+    #               output_files=["sound/WAV/Y1_rsm2.wav"],
+    #               learning_rate=0.03, iterations=20,
+    #               offset=0, frames=None)
 
-    extra = sm.read_file("sound/WAV/Y1_rsm2.wav")[0]
     separate(filename,
              input_files=["sound/WAV/X_rsm2.wav"],
              output_files=["sound/WAV/output.wav"],
-             extra=extra)
+             extra=["sound/WAV/Y1_rsm2.wav"])

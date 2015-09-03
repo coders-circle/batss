@@ -9,7 +9,7 @@ parser = argparse.ArgumentParser(description='Bat Signal Separator')
 subparsers = parser.add_subparsers(help="commands")
 
 # for Create action type
-create_parser = subparsers.add_parser('create', help="Creating new training file.")
+create_parser = subparsers.add_parser('create', help="Create new training file.")
 create_parser.add_argument('-f', '--filename', action="store", dest="training_file", default=None, help="Name of file you want to work on.")
 create_parser.add_argument('-ni', '--inputs', action="store", dest="no_inputs", default=None, type=int, help="Number of inputs for the new training file.")
 create_parser.add_argument('-no', '--outputs', action="store", dest="no_outputs", default=None, type=int, help="Number of outputs for the new training file.")
