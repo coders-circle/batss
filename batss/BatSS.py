@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import argparse
-from main import create_rnn, train_rnn, separate
+from main import create_network, train_network, separate
 
 # Create the main parser
 parser = argparse.ArgumentParser(description='Bat Signal Separator')
@@ -50,20 +50,20 @@ if "which" in args:
         # list of all the arguments in create
         arguments = [args.training_file, args.no_inputs, args.no_outputs, args.no_hiddens]
         if not check_for_null(arguments):
-            create_rnn(args.training_file, args.no_inputs, args.no_outputs, args.no_hiddens)
+            create_network(args.training_file, args.no_inputs, args.no_outputs, args.no_hiddens)
 
     elif args.which == 'train':
         # list of all the arguments in train
         arguments = [args.training_file, args.inputs, args.outputs, 
                 args.training_rate, args.no_iterations, args.no_samples, args.offset, args.frames]
         if not check_for_null(arguments[:3]):
-            train_rnn(args.training_file, args.inputs, args.outputs, 
+            train_network(args.training_file, args.inputs, args.outputs, 
                     args.training_rate, args.no_iterations, args.no_samples, args.offset, args.frames)
 
     elif args.which == 'separate':
         # list of all the arguments in separate
         arguments = [args.training_file, args.inputs, args.outputs, args.extras]
         if not check_for_null(arguments[:3]):
-            separate_rnn(args.training_file, args.inputs, args.outputs, args.extras)
+            separate(args.training_file, args.inputs, args.outputs, args.extras)
 else:
     print("You haven't specified any command. Type -h or --help for help.")
