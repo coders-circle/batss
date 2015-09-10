@@ -51,12 +51,12 @@ class SoundManager:
         frequencies = np.fft.fft(sample)
         amplitudes = np.abs(frequencies)
         angles = np.angle(frequencies)
-        print(sample)
+        # print(sample)
         return amplitudes, angles
 
     def ifft(self, amplitudes, angles):
         sample = np.real(np.fft.ifft(amplitudes * np.exp(1j * angles)))
-        print(sample)
+        # print(sample)
         return sample
 
     def plot_fft(self, sound): # sound should be a list of sound objects

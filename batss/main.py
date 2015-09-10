@@ -123,7 +123,7 @@ def train_network(filename, input_files, output_files, learning_rate=0.03,
     for i in input_files:
         if len(inputs) == num_inputs:
             break
-        sounds = sm.read_file(i)
+        sounds = smanager.read_file(i)
         if type(sounds) is tuple:
             for s in sounds:
                 if len(inputs) == num_inputs:
@@ -137,7 +137,7 @@ def train_network(filename, input_files, output_files, learning_rate=0.03,
     for o in output_files:
         if len(outputs) == num_outputs:
             break
-        sounds = sm.read_file(o)
+        sounds = smanager.read_file(o)
         if type(sounds) is tuple:
             outputs.append(list(sounds[0].sample))
         else:
@@ -204,7 +204,7 @@ def separate(filename, input_files, output_files, extra=None):
     for i in input_files:
         if len(inputs) == num_inputs:
             break
-        sounds = sm.read_file(i)
+        sounds = smanager.read_file(i)
         if type(sounds) is tuple:
             for s in sounds:
                 if len(inputs) == num_inputs:
@@ -249,32 +249,32 @@ def separate(filename, input_files, output_files, extra=None):
 if __name__ == "__main__":
     sm = sound_manager.SoundManager()
 
-    # filename = "sample_networks/2_speeches.nn"
-    # create_network(filename, 1000, 2, 2, 1)
-
-    # train_network(filename,
-    #               input_files=["sound/WAV/X_rss.wav"],
-    #               output_files=["sound/WAV/Y1_rss.wav", "sound/WAV/Y2_rss.wav"],
-    #               learning_rate=0.03, iterations=20,
-    #               offset=0, frames=None)
-
-    # extra1 = sm.read_file("sound/WAV/Y1_rss.wav")[0]
-    # extra2 = sm.read_file("sound/WAV/Y2_rss.wav")[0]
-    # separate(filename,
-    #          input_files=["sound/WAV/X_rss.wav"],
-    #          output_files=["sound/WAV/output1.wav", "sound/WAV/output2.wav"],
-    #          extra=(extra1, extra2))
-
-    filename = "sample_networks/test1.nn"
-    create_network(filename, 1000, 1, 1, 1)
+    filename = "sample_networks/2_speeches.nn"
+    create_network(filename, 1000, 2, 2, 1)
 
     train_network(filename,
-                  input_files=["sound/WAV/X_rsm2.wav"],
-                  output_files=["sound/WAV/Y1_rsm2.wav"],
+                  input_files=["sound/WAV/X_rss.wav"],
+                  output_files=["sound/WAV/Y1_rss.wav", "sound/WAV/Y2_rss.wav"],
                   learning_rate=0.03, iterations=20,
                   offset=0, frames=None)
 
+    extra1 = "sound/WAV/Y1_rss.wav"
+    extra2 = "sound/WAV/Y2_rss.wav"
     separate(filename,
-             input_files=["sound/WAV/X_rsm2.wav"],
-             output_files=["sound/WAV/output.wav"],
-             extra=["sound/WAV/Y1_rsm2.wav"])
+             input_files=["sound/WAV/X_rss.wav"],
+             output_files=["sound/WAV/output1.wav", "sound/WAV/output2.wav"],
+             extra=[extra1, extra2])
+
+    # filename = "sample_networks/test1.nn"
+    # create_network(filename, 1000, 1, 1, 1)
+
+    # train_network(filename,
+    #               input_files=["sound/WAV/X_rsm2.wav"],
+    #               output_files=["sound/WAV/Y1_rsm2.wav"],
+    #               learning_rate=0.03, iterations=20,
+    #               offset=0, frames=None)
+
+    # separate(filename,
+    #          input_files=["sound/WAV/X_rsm2.wav"],
+    #          output_files=["sound/WAV/output.wav"],
+    #          extra=["sound/WAV/Y1_rsm2.wav"])

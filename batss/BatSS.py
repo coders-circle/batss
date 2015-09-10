@@ -1,6 +1,8 @@
 #!/usr/bin/env python
+
 import argparse
 from main import create_network, train_network, separate
+
 
 # Create the main parser
 parser = argparse.ArgumentParser(description='Bat Signal Separator')
@@ -10,30 +12,30 @@ subparsers = parser.add_subparsers(help="commands")
 
 # for Create action type
 create_parser = subparsers.add_parser('create', help="Create new training file.")
-create_parser.add_argument('-f', '--filename', action="store", dest="training_file", default=None, help="Name of file you want to work on.")
-create_parser.add_argument('-ni', '--inputs', action="store", dest="no_inputs", default=None, type=int, help="Number of inputs for the new training file.")
-create_parser.add_argument('-no', '--outputs', action="store", dest="no_outputs", default=None, type=int, help="Number of outputs for the new training file.")
-create_parser.add_argument('-nh', '--hiddens', action="store", dest="no_hiddens", default=None, type=int, help="Number of hidden neurons for the new training file.")
+create_parser.add_argument('-f', '--filename', action="store", dest="training_file", default=None, help="Name of file you want to save new neural network.")
+create_parser.add_argument('-i', '--inputs', action="store", dest="num_inputs", default=None, type=int, help="Number of inputs of the neural network.")
+create_parser.add_argument('-o', '--outputs', action="store", dest="num_outputs", default=None, type=int, help="Number of outputs for the neural network.")
+create_parser.add_argument('-s', '--samples', action="store", dest="num_samples", default=None, type=int, help="Number of samples processed once by the neural network.")
+create_parser.add_argument('-hl', '--hidden_layers', action="store", dest="num_hidden_layers", default=None, type=int, help="Number of hidden layer neurons for the neural network.")
 create_parser.set_defaults(which='create')
 
 # for Train action type
 train_parser = subparsers.add_parser('train', help="Train the given file.")
-train_parser.add_argument('-f', '--filename', action="store", dest="training_file", default=None, help="Name of training file.")
-train_parser.add_argument('-i', '--inputs', action="store", dest="inputs", nargs='+', default=None, help="Name of input file.")
-train_parser.add_argument('-o', '--outputs', action="store", dest="outputs", nargs='+', default=None, help="Name of output file.")
-train_parser.add_argument('-r', '--rate', action="store", dest="training_rate", type=float, default=0.05, help="Tell us the rate of training.")
-train_parser.add_argument('-I', '--iterations', action="store", dest="no_iterations", type=int, default=1, help="Total number of iterations you want to perform.")
-train_parser.add_argument('-s', '--samples', action="store", dest="no_samples", type=int, default=2000, help="Total number of samples.")
+train_parser.add_argument('-f', '--filename', action="store", dest="training_file", default=None, help="Name of the file where the neural network is saved.")
+train_parser.add_argument('-i', '--inputs', action="store", dest="inputs", nargs='+', default=None, help="Names of the input sound files.")
+train_parser.add_argument('-o', '--outputs', action="store", dest="outputs", nargs='+', default=None, help="Names of the output sound files.")
+train_parser.add_argument('-r', '--rate', action="store", dest="learning_rate", type=float, default=0.03, help="Learning rate to use during training.")
+train_parser.add_argument('-I', '--iterations', action="store", dest="num_iterations", type=int, default=30, help="Total number of iterations to perform during training.")
 train_parser.add_argument('-O', '--offset', action="store", dest="offset", type=int, default=0, help="Offset of sound samples from beginning to use for training.")
-train_parser.add_argument('-F', '--frames', action="store", dest="frames", type=int, default=1, help="Number of frames each consisting of 'n' samples.")
+train_parser.add_argument('-F', '--frames', action="store", dest="frames", type=int, default=None, help="Number of frames each consisting of given number of samples to use for training.")
 train_parser.set_defaults(which='train')
 
 # for Separate action type
 separate_parser = subparsers.add_parser('separate', help="Separate signals.")
-separate_parser.add_argument('-f', '--filename', action="store", dest="training_file", default=None, help="Name of training file.")
-separate_parser.add_argument('-i', '--inputs', action="store", dest="inputs", nargs='+', default=None, help="Name of input files.")
-separate_parser.add_argument('-o', '--outputs', action="store", dest="outputs", nargs='+', default=None, help="Name of output files.")
-separate_parser.add_argument('-e', '--extras', action="store", dest="extras", default=None, help="Name of output files.")
+separate_parser.add_argument('-f', '--filename', action="store", dest="training_file", default=None, help="Name of the file where the neural network is saved.")
+separate_parser.add_argument('-i', '--inputs', action="store", dest="inputs", nargs='+', default=None, help="Name of the input sound files.")
+separate_parser.add_argument('-o', '--outputs', action="store", dest="outputs", nargs='+', default=None, help="Name of the output sound files.")
+separate_parser.add_argument('-e', '--extras', action="store", dest="extras", default=None, help="Name of extra sound files to plot.")
 separate_parser.set_defaults(which='separate')
 args = parser.parse_args()
 
@@ -48,21 +50,20 @@ def check_for_null(arguments):
 if "which" in args:
     if args.which == 'create':
         # list of all the arguments in create
-        arguments = [args.training_file, args.no_inputs, args.no_outputs, args.no_hiddens]
+        arguments = [args.training_file, args.num_samples, args.num_inputs, args.num_outputs, args.num_hidden_layers]
         if not check_for_null(arguments):
-            create_network(args.training_file, args.no_inputs, args.no_outputs, args.no_hiddens)
+            create_network(args.training_file, args.num_samples, args.num_inputs, args.num_outputs, args.num_hidden_layers)
 
     elif args.which == 'train':
         # list of all the arguments in train
-        arguments = [args.training_file, args.inputs, args.outputs, 
-                args.training_rate, args.no_iterations, args.no_samples, args.offset, args.frames]
+        arguments = [args.training_file, args.inputs, args.outputs]
         if not check_for_null(arguments[:3]):
             train_network(args.training_file, args.inputs, args.outputs, 
-                    args.training_rate, args.no_iterations, args.no_samples, args.offset, args.frames)
+                    args.learning_rate, args.num_iterations, args.offset, args.frames)
 
     elif args.which == 'separate':
         # list of all the arguments in separate
-        arguments = [args.training_file, args.inputs, args.outputs, args.extras]
+        arguments = [args.training_file, args.inputs, args.outputs]
         if not check_for_null(arguments[:3]):
             separate(args.training_file, args.inputs, args.outputs, args.extras)
 else:
