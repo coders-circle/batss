@@ -7,18 +7,24 @@ from .layer import Layer
 
 
 class Network:
-    def __init__(self, ni, nh, no):
+    def __init__(self, ni, nh_list, no):
         """Constructs a neural network with given number of neurons.
 
         Args:
             ni: Number of input layer neurons.
-            nh: Number of hidden layer neurons.
+            nh_list: List of neurons for each hidden layer.
             no: Number of output layer neurons.
         """
 
         self.input_layer = Layer(ni, None)
-        self.hidden_layer = Layer(nh, self.input_layer)
-        self.output_layer = Layer(no, self.hidden_layer)
+
+        last_layer = self.input_layer
+        self.hidden_layers = []
+        for nh in nh_list:
+            last_layer = Layer(nh, last_layer)
+            self.hidden_layers.append(last_layer)
+
+        self.output_layer = Layer(no, last_layer)
 
     def save(self, file):
         """Save the neural network data in the given file object.
@@ -27,7 +33,8 @@ class Network:
             file: An opened file object for writing in bytes.
         """
 
-        pickle.dump(self.hidden_layer.weights, file)
+        for hl in self.hidden_layers:
+            pickle.dump(hl.weights, file)
         pickle.dump(self.output_layer.weights, file)
 
     def load(self, file):
@@ -37,7 +44,8 @@ class Network:
             file: An opened file object for reading in bytes.
         """
 
-        self.hidden_layer.weights = pickle.load(file)
+        for hl in self.hidden_layers:
+            hl.weights = pickle.load(file)
         self.output_layer.weights = pickle.load(file)
 
     def set_inputs(self, inputs):
@@ -67,7 +75,8 @@ class Network:
     def forward(self):
         """Feed forward the input values through the neural network."""
 
-        self.hidden_layer.forward()
+        for hl in self.hidden_layers:
+            hl.forward()
         self.output_layer.forward()
 
     def train(self, inputs, targets, rate=0.05):
@@ -89,6 +98,8 @@ class Network:
         self.set_inputs(inputs)
         self.forward()
 
+        # Step 2: Calculate delta error vectors.
+
         targets = list(targets)
         num_outputs = len(self.output_layer.x)
         if num_outputs > len(targets):
@@ -96,35 +107,39 @@ class Network:
             targets = targets + [0]*extra
         targets = np.array(targets[:num_outputs])
 
-        # Step 2: Calculate delta error vectors.
-
         # For output layer, the delta vector is simply
         # the difference of target and obtained output vectors.
         self.output_layer.deltas = targets - self.output_layer.x
 
-        # For hidden layer, the errors are backpropagated from
-        # output layer.
+        # For N-th hidden layer, the errors are backpropagated from
+        # (N+1)-th layer.
 
-        # dh = W.Transpose() * D
-        # where W and D are weight matrix and delta vector of
-        # output layer.
-        weightsT = self.output_layer.weights.transpose()
-        dh = np.dot(weightsT, self.output_layer.deltas)
-        # Remove last element that corresponds to bias.
-        dh = dh.tolist()[0][:-1]
+        next_layer = self.output_layer
 
-        # fdash = Differential_Activate(Hidden_Layer.Net)
-        # where Net = Weight * Inputs
-        fdash = activate_diff(self.hidden_layer.nets).tolist()
+        for hl in self.hidden_layers:
+            # dh = W.Transpose() * D
+            # where W and D are weight matrix and delta vector of
+            # N+1 layer.
+            weightsT = next_layer.weights.transpose()
+            dh = np.dot(weightsT, next_layer.deltas)
+            # Remove last element that corresponds to bias.
+            dh = dh.tolist()[0][:-1]
 
-        # Finally, delta vector of hidden layer:
-        # delta = dh .* fdash
-        # .* is component wise multiplication.
-        dh = np.multiply(dh, fdash)
-        self.hidden_layer.deltas = dh
+            # fdash = Differential_Activate(Hidden_Layer.Net)
+            # where Net = Weight * Inputs
+            fdash = activate_diff(hl.nets).tolist()
+
+            # Finally, delta vector of hidden layer:
+            # delta = dh .* fdash
+            # .* is component wise multiplication.
+            dh = np.multiply(dh, fdash)
+            hl.deltas = dh
+
+            last_layer = hl
 
         # Step 3: Use the delta vectors to adjust the weights.
-        self.hidden_layer.adjust_weights(rate)
+        for hl in self.hidden_layers:
+            hl.adjust_weights(rate)
         self.output_layer.adjust_weights(rate)
 
         return np.average(self.output_layer.deltas)
