@@ -12,12 +12,12 @@ __kernel void main(
 {
     int ci = get_global_id(0);
     int i = layer_offset;
-    int lim = layer_offset + layer_size;
-    delta_array[layer_offset + ci] = 0;
+    int lim = layer_offset + forward_layer_size;
+    wi = weight_offset + layer_size*ci;
     float delta_temp = 0;
     for(int j = 0; i < lim; i++, j++)
     {
-        delta_temp += delta_array[forward_layer_offset + ci]*weight_array[weight_offset + ci*forward_layer_size + j];
+        delta_temp += delta_array[forward_layer_offset + ci + j]*weight_array[wi + j];
     }
     float f = 2/(1+exp(-pot_array[layer_offset+ci])) - 1;
     delta_array[layer_offset + ci] = delta_temp*0.5 * (1+f) * (1-f);

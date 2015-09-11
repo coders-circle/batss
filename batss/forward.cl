@@ -10,11 +10,10 @@ __kernel void main(
     int ci = get_global_id(0);
     int i = input_offset;
     int lim = input_offset + layer_size;
-    int wi = weight_offset + prev_layer_size*ci;
 
     for (int j = 0; i < lim; i++, j++)
     {
-        pot_array[input_offset+ci] += io_array[i] * weight_array[wi + j];
+        pot_array[input_offset+ci] += io_array[i] * weight_array[weight_offset + layer_size*j + ci];
     }
 
     io_array[input_offset+ci] = 2/(1+exp(-pot_array[input_offset+ci])) - 1;
