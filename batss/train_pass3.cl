@@ -5,14 +5,14 @@ __kernel void main(
     int layer_offset,
     int layer_size,
     int forward_layer_offset,
-    int learning_rate)
+    int weight_offset,
+    float learning_rate)
 {
     int ci = get_global_id(0);
 
-    wi = weight_offset + layer_size*ci;
-    float dwc = delta_array[layer_offset+ci]*learning_rate;
+    int wi = weight_offset + layer_size*ci;
     for(int i = 0; i < layer_size; i++)
     {
-        weight_array[wi + i] += dwc * io_array[forward_layer_offset+i];
+        weight_array[wi + i] += learning_rate*delta_array[forward_layer_offset+i] * io_array[forward_layer_offset+i];
     }
 }

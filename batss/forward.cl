@@ -8,8 +8,10 @@ __kernel void main(
     int prev_layer_size)
 {
     int ci = get_global_id(0);
-    int i = input_offset;
-    int lim = input_offset + layer_size;
+    int i = input_offset-layer_size;
+    int lim = i + layer_size;
+
+    pot_array[input_offset+ci] = 0;
 
     for (int j = 0; i < lim; i++, j++)
     {
@@ -17,5 +19,4 @@ __kernel void main(
     }
 
     io_array[input_offset+ci] = 2/(1+exp(-pot_array[input_offset+ci])) - 1;
-    barrier(CLK_GLOBAL_MEM_FENCE);
 }

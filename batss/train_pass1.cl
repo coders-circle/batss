@@ -6,5 +6,5 @@ __kernel void main(
 {
     int i = layer_op_start;
     int ci = get_global_id(0);
-    delta_array[ci + i] = expected_op_array[ci] - io_array[ci];
+    delta_array[ci + i] = expected_op_array[ci] - io_array[i+ci];
 }
