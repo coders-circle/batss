@@ -107,7 +107,6 @@ def train_network(filename, input_files, output_files, learning_rate=0.03,
         print("Hidden Layer: ", len(nn.hidden_layers[0].x))
     print("Output Layer: ", len(nn.output_layer.x))
     print("Number of hidden layers:", nhl)
-    print("Number of frames to train:", frames)
     print("Number of samples per frame:", num_samples)
     print("Number of iterations:", iterations)
     print("Learning rate:", learning_rate)
@@ -148,8 +147,10 @@ def train_network(filename, input_files, output_files, learning_rate=0.03,
     if num_outputs > len(outputs):
         raise Exception("Not enough outputs provided for training")
 
+
     if not frames:
         frames = int(len(outputs[0])/num_samples)
+    print("Number of frames to train:", frames)
 
     f = open(log_file, "w")
 
@@ -237,13 +238,14 @@ def separate(filename, input_files, output_files, extra=None):
         smanager.save_file(output, output_files[o])
 
     print("Done")
+    titles = ["Input", "Output", "Extra"]
     if extra:
         es = []
         for ex in extra:
             es.append(smanager.read_file(ex)[0])
-        smanager.plot([tuple(inputsounds), tuple(outputsounds), tuple(es)])
+        smanager.plot([tuple(inputsounds), tuple(outputsounds), tuple(es)], titles)
     else:
-        smanager.plot([tuple(inputsounds), tuple(outputsounds)])
+        smanager.plot([tuple(inputsounds), tuple(outputsounds)], titles)
 
 
 if __name__ == "__main__":

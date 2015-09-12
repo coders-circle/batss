@@ -22,7 +22,7 @@ class SoundManager:
             s2 = Sound(sample[:, 1], rate).normalize()
             return s1, s2
 
-    def plot(self, sound): # sound should be a list of sound objects
+    def plot(self, sound, titles=None): # sound should be a list of sound objects
         count = 0
         for j in range(0, len(sound)):
             if type(sound[j]) == tuple:
@@ -33,6 +33,10 @@ class SoundManager:
                     count += 1
                     plt.subplot(len(sound), 2, count)
                     plt.plot(time_array, sound[j][i].sample, color='gray')
+                    plt.ylabel('Amplitude')
+                    plt.xlabel('Time (ms)')
+                    if titles:
+                        plt.title(titles[j] + " #" + str(i))
             else:
                 time_array = np.arange(0, sound[j].sample.size, 1)
                 time_array = time_array / sound[j].rate
@@ -43,8 +47,11 @@ class SoundManager:
                 plt.subplot(len(sound), 2, count)
                 count += 1
                 plt.plot(time_array, sound[j].sample, color='gray')
-        plt.ylabel('Amplitude')
-        plt.xlabel('Time (ms)')
+                plt.ylabel('Amplitude')
+                plt.xlabel('Time (ms)')
+                if titles:
+                    plt.title(titles[j])
+        plt.tight_layout()
         plt.show()
 
     def fft(self, sample):
@@ -87,15 +94,19 @@ class SoundManager:
 if __name__ == "__main__":
     s = SoundManager()
     sound = []
-    #sound.append(s.read_file("sound/WAV/X_linear.wav"))
+    sound.append(s.read_file("sound/WAV/X_linear.wav"))
     sound.append(s.read_file("sound/WAV/CallHangup.wav"))
+    titles = []
+    titles.append("Input")
+    titles.append("Output")
     #sound.append(s.read_file("sound/WAV/X_linear.wav"))
     #sound = s.read_file("WAV/CallHangup.wav")
-    a = s.fft(sound[0].sample)
-    sam = s.ifft(a[0],a[1])
-    play = Sound(sam, sound[0].rate)
-    sound.append(play)
-    s.plot_fft(sound)
+    # a = s.fft(sound[0].sample)
+    # sam = s.ifft(a[0],a[1])
+    # play = Sound(sam, sound[0].rate)
+    # sound.append(play)
+    # s.plot_fft(sound)
     #s.plot_fft(play)
     #s.plot_fft(sound)
     #s.save_file(sound[1], "sound/WAV/generated1.wav")
+    s.plot(sound, titles)
