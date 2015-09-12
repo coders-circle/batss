@@ -23,7 +23,7 @@ for k in range(30):
         outs = target0.sample[off:off+samples]
         e = rnn.train(ins, outs, rate)
         errs.append(e)
-    
+
 outputs = []
 for i in range(int(len(input0.sample)/samples)):
     off = i * samples

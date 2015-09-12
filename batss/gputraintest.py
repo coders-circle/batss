@@ -5,12 +5,14 @@ import numpy as np
 from clw import clwrapper
 from clw import kernel
 
+from sound import sound, sound_manager
+import numpy as np
+from backprop import network
+
 
 def random_weight(div_factor=1):
     #return (random.random() - 0.5) / (div_factor)
     return 1
-
-
 
 
 clw = clwrapper.CL()
@@ -25,8 +27,8 @@ train_pass2.load('train_pass2.cl')
 train_pass3.load('train_pass3.cl')
 
 
-neurons_per_layer = 1024;
-num_layers = 5;
+neurons_per_layer = 1000;
+num_layers = 3;
 
 io_array = np.array(range(neurons_per_layer*num_layers), dtype=np.float32)
 for i in range(len(io_array)):
@@ -60,10 +62,76 @@ d_delta_array = cl.Buffer(clw.get_context(),
 d_expected_op_array = cl.Buffer(clw.get_context(),
                    mf.READ_WRITE | mf.COPY_HOST_PTR, hostbuf=expected_op_array)
 
-num_iterations = 100
-start = timer()
-for iteration in range(num_iterations):
-    # forward pass
+
+
+sm = sound_manager.SoundManager()
+# input0 = sm.read_file("sound/WAV/X_rss.wav")[0]
+input0 = sm.read_file("sound/WAV/X_rsm2.wav")[0]
+
+# target0 = sm.read_file("sound/WAV/Y1_rss.wav")[0]
+target0 = sm.read_file("sound/WAV/Y1_rsm2.wav")[0]
+
+samples = 1000
+num_frame = int(len(target0.sample)/samples)
+
+for k in range(30):
+    for j in range(int(len(target0.sample)/samples)):
+        off = j * samples
+        ins = input0.sample[off:off+samples]
+        ins = [np.float32(x) for x in ins]
+        outs = target0.sample[off:off+samples]
+        outs = [np.float32(x) for x in outs]
+        cl.enqueue_write_buffer(clw.get_queue(), mem=d_io_array, hostbuf=np.asarray(ins)).wait()
+        cl.enqueue_write_buffer(clw.get_queue(), mem=d_expected_op_array, hostbuf=np.asarray(outs)).wait()
+        # forward pass
+        for i in range(1, num_layers) :
+            forward.execute((neurons_per_layer, ),
+                            None,
+                            d_io_array,
+                            d_weight_array,
+                            d_pot_array,
+                            np.int32(i*neurons_per_layer),
+                            np.int32(neurons_per_layer*neurons_per_layer*(i-1)),
+                            np.int32(neurons_per_layer),
+                            np.int32(neurons_per_layer))
+        # calculate delta of output layer
+        train_pass1.execute((neurons_per_layer, ),
+                            None,
+                            d_expected_op_array,
+                            d_io_array,
+                            d_delta_array,
+                            np.int32(neurons_per_layer*(num_layers-1)))
+        # calculate delta of hidden layers
+        for i in range(num_layers-2, 0, -1):
+            train_pass2.execute((neurons_per_layer, ),
+                                None,
+                                d_weight_array,
+                                d_pot_array,
+                                d_delta_array,
+                                np.int32((i-1)*neurons_per_layer),
+                                np.int32(i*neurons_per_layer),
+                                np.int32(neurons_per_layer*neurons_per_layer*(i-1)),
+                                np.int32(neurons_per_layer),
+                                np.int32(neurons_per_layer))
+        # adjust weights according to calculated error
+        for i in range(0, num_layers):
+            train_pass3.execute((neurons_per_layer,),
+                                None,
+                                d_io_array,
+                                d_weight_array,
+                                d_delta_array,
+                                np.int32(i*neurons_per_layer),
+                                np.int32(neurons_per_layer),
+                                np.int32((i+1)*neurons_per_layer),
+                                np.int32(neurons_per_layer*neurons_per_layer*i),
+                                np.float32(0.01))
+
+outputs = []
+for i in range(int(len(input0.sample)/samples)):
+    off = i * samples
+    ins = input0.sample[off:off+samples]
+    ins = [np.float32(x) for x in ins]
+    cl.enqueue_write_buffer(clw.get_queue(), mem=d_io_array, hostbuf=np.asarray(ins)).wait()
     for i in range(1, num_layers) :
         forward.execute((neurons_per_layer, ),
                         None,
@@ -74,59 +142,87 @@ for iteration in range(num_iterations):
                         np.int32(neurons_per_layer*neurons_per_layer*(i-1)),
                         np.int32(neurons_per_layer),
                         np.int32(neurons_per_layer))
-    # calculate delta of output layer
-    train_pass1.execute((neurons_per_layer, ),
-                        None,
-                        d_expected_op_array,
-                        d_io_array,
-                        d_delta_array,
-                        np.int32(neurons_per_layer*(num_layers-1)))
-    # calculate delta of hidden layers
-    for i in range(num_layers-2, 0, -1):
-        train_pass2.execute((neurons_per_layer, ),
-                            None,
-                            d_weight_array,
-                            d_pot_array,
-                            d_delta_array,
-                            np.int32((i-1)*neurons_per_layer),
-                            np.int32(i*neurons_per_layer),
-                            np.int32(neurons_per_layer*neurons_per_layer*(i-1)),
-                            np.int32(neurons_per_layer),
-                            np.int32(neurons_per_layer))
-    # adjust weights according to calculated error
-    for i in range(0, num_layers):
-        train_pass3.execute((neurons_per_layer,),
-                            None,
-                            d_io_array,
-                            d_weight_array,
-                            d_delta_array,
-                            np.int32(i*neurons_per_layer),
-                            np.int32(neurons_per_layer),
-                            np.int32((i+1)*neurons_per_layer),
-                            np.int32(neurons_per_layer*neurons_per_layer*i),
-                            np.float32(0.01))
-    #cl.enqueue_read_buffer(clw.get_queue(), d_io_array, io_array).wait()
-    #cl.enqueue_read_buffer(clw.get_queue(), d_delta_array, delta_array).wait()
-    #print(delta_array)
-    #print(io_array)
-    #print("")
+    cl.enqueue_read_buffer(clw.get_queue(), d_io_array, io_array).wait()
+    outputs.append(io_array[neurons_per_layer*(num_layers-1)])
 
 
-for i in range(1, num_layers) :
-        forward.execute((neurons_per_layer, ),
-                        None,
-                        d_io_array,
-                        d_weight_array,
-                        d_pot_array,
-                        np.int32(i*neurons_per_layer),
-                        np.int32(neurons_per_layer*neurons_per_layer*(i-1)),
-                        np.int32(neurons_per_layer),
-                        np.int32(neurons_per_layer))
+    
+osounds = sum(outputs, [])
+osounds = sound.Sound(np.array(osounds), input0.rate)
+sm.plot([input0, osounds, target0])
 
-cl.enqueue_read_buffer(clw.get_queue(), d_io_array, io_array).wait()
-cl.enqueue_read_buffer(clw.get_queue(), d_weight_array, weight_array).wait()
+sm.save_file(osounds, "sound/WAV/output.wav")
 
-elapsed_time = timer() - start
-print(elapsed_time)
+
+
+
+#num_iterations = 100
+#start = timer()
+#for iteration in range(num_iterations):
+#    # forward pass
+#    for i in range(1, num_layers) :
+#        forward.execute((neurons_per_layer, ),
+#                        None,
+#                        d_io_array,
+#                        d_weight_array,
+#                        d_pot_array,
+#                        np.int32(i*neurons_per_layer),
+#                        np.int32(neurons_per_layer*neurons_per_layer*(i-1)),
+#                        np.int32(neurons_per_layer),
+#                        np.int32(neurons_per_layer))
+#    # calculate delta of output layer
+#    train_pass1.execute((neurons_per_layer, ),
+#                        None,
+#                        d_expected_op_array,
+#                        d_io_array,
+#                        d_delta_array,
+#                        np.int32(neurons_per_layer*(num_layers-1)))
+#    # calculate delta of hidden layers
+#    for i in range(num_layers-2, 0, -1):
+#        train_pass2.execute((neurons_per_layer, ),
+#                            None,
+#                            d_weight_array,
+#                            d_pot_array,
+#                            d_delta_array,
+#                            np.int32((i-1)*neurons_per_layer),
+#                            np.int32(i*neurons_per_layer),
+#                            np.int32(neurons_per_layer*neurons_per_layer*(i-1)),
+#                            np.int32(neurons_per_layer),
+#                            np.int32(neurons_per_layer))
+#    # adjust weights according to calculated error
+#    for i in range(0, num_layers):
+#        train_pass3.execute((neurons_per_layer,),
+#                            None,
+#                            d_io_array,
+#                            d_weight_array,
+#                            d_delta_array,
+#                            np.int32(i*neurons_per_layer),
+#                            np.int32(neurons_per_layer),
+#                            np.int32((i+1)*neurons_per_layer),
+#                            np.int32(neurons_per_layer*neurons_per_layer*i),
+#                            np.float32(0.01))
+#    #cl.enqueue_read_buffer(clw.get_queue(), d_io_array, io_array).wait()
+#    #cl.enqueue_read_buffer(clw.get_queue(), d_delta_array, delta_array).wait()
+#    #print(delta_array)
+#    #print(io_array)
+#    #print("")
+
+
+#for i in range(1, num_layers) :
+#        forward.execute((neurons_per_layer, ),
+#                        None,
+#                        d_io_array,
+#                        d_weight_array,
+#                        d_pot_array,
+#                        np.int32(i*neurons_per_layer),
+#                        np.int32(neurons_per_layer*neurons_per_layer*(i-1)),
+#                        np.int32(neurons_per_layer),
+#                        np.int32(neurons_per_layer))
+
+#cl.enqueue_read_buffer(clw.get_queue(), d_io_array, io_array).wait()
+#cl.enqueue_read_buffer(clw.get_queue(), d_weight_array, weight_array).wait()
+
+#elapsed_time = timer() - start
+#print(elapsed_time)
 
 #print(io_array)
